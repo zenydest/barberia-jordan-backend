@@ -2,9 +2,6 @@ import os
 from flask import Flask
 from flask_cors import CORS
 from .models import db
-from .routes.migrations import migration_bp
-app.register_blueprint(migration_bp)
-
 
 
 def create_app():
@@ -24,7 +21,7 @@ def create_app():
     db.init_app(app)
     CORS(app)
     
-    # ✅ Registrar blueprints
+    # ✅ Registrar blueprints DE RUTAS
     from .routes import barberos_bp, servicios_bp, cobros_bp, clientes_bp, reportes_bp, exportar_bp
     
     app.register_blueprint(barberos_bp, url_prefix='/barberos')
@@ -33,6 +30,10 @@ def create_app():
     app.register_blueprint(clientes_bp, url_prefix='/clientes')
     app.register_blueprint(reportes_bp, url_prefix='/reportes')
     app.register_blueprint(exportar_bp, url_prefix='/exportar')
+    
+    # ✅ REGISTRAR MIGRATION BLUEPRINT (DENTRO de create_app)
+    from .routes.migrations import migration_bp
+    app.register_blueprint(migration_bp)
     
     @app.route('/api/health', methods=['GET'])
     def health():
