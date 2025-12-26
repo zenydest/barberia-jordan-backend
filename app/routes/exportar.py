@@ -1,50 +1,52 @@
-from flask import request, jsonify, send_file
-from app import db
-from app.models import Cliente, Barbero, Servicio, Cobro
+from flask import Blueprint, request, jsonify, send_file
+from ..models import db, Cliente, Barbero, Servicio, Cobro
 from datetime import datetime
 from io import BytesIO
 
-def generar_reporte():
-    try:
-        export_type = request.args.get('type', 'pdf')
-        report_type = request.args.get('reportType', 'diario')
-        fecha_inicio = request.args.get('fechaInicio', '')
-        fecha_fin = request.args.get('fechaFin', '')
-        
-        # Obtener cobros en el rango de fechas
-        cobros = Cobro.query.filter(
-            db.func.date(Cobro.fecha) >= fecha_inicio,
-            db.func.date(Cobro.fecha) <= fecha_fin
-        ).all() if fecha_inicio and fecha_fin else []
-        
-        if export_type == 'excel':
-            return generar_excel(cobros, report_type, fecha_inicio, fecha_fin)
-        else:
-            return generar_pdf(cobros, report_type, fecha_inicio, fecha_fin)
+
+def get_exportar_bp():
+    bp = Blueprint('exportar', __name__)
     
-    except Exception as e:
-        return jsonify({'error': f'Error: {str(e)}'}), 500
+    @bp.route('/reporte', methods=['GET'])
+    def generar_reporte():
+        try:
+            export_type = request.args.get('type', 'pdf')
+            report_type = request.args.get('reportType', 'diario')
+            fecha_inicio = request.args.get('fechaInicio', '')
+            fecha_fin = request.args.get('fechaFin', '')
+            
+            cobros = Cobro.query.filter(
+                db.func.date(Cobro.fecha) >= fecha_inicio,
+                db.func.date(Cobro.fecha) <= fecha_fin
+            ).all() if fecha_inicio and fecha_fin else []
+            
+            if export_type == 'excel':
+                return generar_excel(cobros, report_type, fecha_inicio, fecha_fin)
+            else:
+                return generar_pdf(cobros, report_type, fecha_inicio, fecha_fin)
+        
+        except Exception as e:
+            return jsonify({'error': f'Error: {str(e)}'}), 500
+
+    return bp
+
 
 def generar_excel(cobros, report_type, fecha_inicio, fecha_fin):
     try:
-        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.styles import Font, PatternFill
         from openpyxl import Workbook
         
-        # Crear workbook
         wb = Workbook()
         ws = wb.active
         ws.title = 'Reporte'
         
-        # Headers
         headers = ['Fecha', 'Cliente', 'Barbero', 'Servicio', 'Monto']
         ws.append(headers)
         
-        # Estilo headers
         for cell in ws[1]:
             cell.font = Font(bold=True, color='FFFFFF')
             cell.fill = PatternFill(start_color='FF6B35', end_color='FF6B35', fill_type='solid')
         
-        # Datos
         total = 0
         for cobro in cobros:
             cliente = Cliente.query.get(cobro.cliente_id)
@@ -60,13 +62,8 @@ def generar_excel(cobros, report_type, fecha_inicio, fecha_fin):
             ])
             total += float(cobro.monto)
         
-        # Total row
         ws.append(['', '', '', 'TOTAL:', total])
-        last_row = ws.max_row
-        ws[f'E{last_row}'].font = Font(bold=True)
-        ws[f'D{last_row}'].font = Font(bold=True)
         
-        # Ajustar ancho de columnas
         for column in ws.columns:
             max_length = 0
             column_letter = column[0].column_letter
@@ -76,10 +73,8 @@ def generar_excel(cobros, report_type, fecha_inicio, fecha_fin):
                         max_length = len(str(cell.value))
                 except:
                     pass
-            adjusted_width = min(max_length + 2, 50)
-            ws.column_dimensions[column_letter].width = adjusted_width
+            ws.column_dimensions[column_letter].width = min(max_length + 2, 50)
         
-        # Guardar en BytesIO
         output = BytesIO()
         wb.save(output)
         output.seek(0)
@@ -94,6 +89,7 @@ def generar_excel(cobros, report_type, fecha_inicio, fecha_fin):
     except Exception as e:
         return jsonify({'error': f'Error Excel: {str(e)}'}), 500
 
+
 def generar_pdf(cobros, report_type, fecha_inicio, fecha_fin):
     try:
         from reportlab.lib.pagesizes import letter
@@ -102,13 +98,11 @@ def generar_pdf(cobros, report_type, fecha_inicio, fecha_fin):
         from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         
-        # Crear PDF
         output = BytesIO()
         doc = SimpleDocTemplate(output, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
         elements = []
         styles = getSampleStyleSheet()
         
-        # Título
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
@@ -121,12 +115,10 @@ def generar_pdf(cobros, report_type, fecha_inicio, fecha_fin):
         elements.append(Paragraph(f'Reporte {report_type.upper()}', styles['Heading2']))
         elements.append(Spacer(1, 0.3*inch))
         
-        # Info
         info_text = f'Período: {fecha_inicio} al {fecha_fin}<br/>Generado: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}'
         elements.append(Paragraph(info_text, styles['Normal']))
         elements.append(Spacer(1, 0.3*inch))
         
-        # Tabla
         data = [['Fecha', 'Cliente', 'Barbero', 'Servicio', 'Monto']]
         total = 0
         
@@ -148,7 +140,6 @@ def generar_pdf(cobros, report_type, fecha_inicio, fecha_fin):
         total_str = f"${total:.2f}"
         data.append(['', '', '', 'TOTAL', total_str])
         
-        # Tabla styling
         table = Table(data, colWidths=[1.2*inch, 1.5*inch, 1.5*inch, 1.5*inch, 1*inch])
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FF6B35')),
@@ -163,8 +154,6 @@ def generar_pdf(cobros, report_type, fecha_inicio, fecha_fin):
         ]))
         
         elements.append(table)
-        
-        # Generar PDF
         doc.build(elements)
         output.seek(0)
         
