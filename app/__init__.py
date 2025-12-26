@@ -2,6 +2,9 @@ import os
 from flask import Flask
 from flask_cors import CORS
 from .models import db
+from .routes.migrations import migration_bp
+app.register_blueprint(migration_bp)
+
 
 
 def create_app():
