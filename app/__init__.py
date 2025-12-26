@@ -1,12 +1,24 @@
+import os
 from flask import Flask
 from flask_cors import CORS
 from .models import db
 
+
 def create_app():
     app = Flask(__name__)
     
-    # Config
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///barberia.db'
+    # Config - Usar PostgreSQL en Render, SQLite en local
+    database_url = os.getenv('DATABASE_URL')
+    
+    if database_url:
+        # PostgreSQL en Render
+        if database_url.startswith('postgresql://'):
+            database_url = database_url.replace('postgresql://', 'postgresql+psycopg2://', 1)
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    else:
+        # SQLite local
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///barberia.db'
+    
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # Init DB
