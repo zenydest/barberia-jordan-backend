@@ -4,6 +4,7 @@ from flask_cors import CORS
 from .models import db
 
 
+
 def create_app():
     app = Flask(__name__)
     
@@ -21,15 +22,15 @@ def create_app():
     db.init_app(app)
     CORS(app)
     
-    # ✅ Registrar blueprints DE RUTAS
+    # ✅ Registrar blueprints CON /api
     from .routes import barberos_bp, servicios_bp, cobros_bp, clientes_bp, reportes_bp, exportar_bp
     
-    app.register_blueprint(barberos_bp, url_prefix='/barberos')
-    app.register_blueprint(servicios_bp, url_prefix='/servicios')
-    app.register_blueprint(cobros_bp, url_prefix='/cobros')
-    app.register_blueprint(clientes_bp, url_prefix='/clientes')
-    app.register_blueprint(reportes_bp, url_prefix='/reportes')
-    app.register_blueprint(exportar_bp, url_prefix='/exportar')
+    app.register_blueprint(barberos_bp, url_prefix='/api/barberos')
+    app.register_blueprint(servicios_bp, url_prefix='/api/servicios')
+    app.register_blueprint(cobros_bp, url_prefix='/api/cobros')
+    app.register_blueprint(clientes_bp, url_prefix='/api/clientes')
+    app.register_blueprint(reportes_bp, url_prefix='/api/reportes')
+    app.register_blueprint(exportar_bp, url_prefix='/api/exportar')
     
     # ✅ REGISTRAR MIGRATION BLUEPRINT (DENTRO de create_app)
     from .routes.migrations import migration_bp
