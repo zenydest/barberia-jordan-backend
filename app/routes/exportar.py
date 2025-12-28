@@ -7,7 +7,7 @@ from io import BytesIO
 def get_exportar_bp():
     bp = Blueprint('exportar', __name__)
     
-    @bp.route('/reporte', methods=['GET'])
+    @bp.route('/generar', methods=['GET'])
     def generar_reporte():
         try:
             export_type = request.args.get('type', 'pdf')

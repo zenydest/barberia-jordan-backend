@@ -1,10 +1,9 @@
 from flask import Blueprint, request, jsonify
 from ..models import db, Barbero
 
-
 def get_barberos_bp():
     bp = Blueprint('barberos', __name__)
-    
+
     @bp.route('', methods=['GET'])
     def get_barberos():
         barberos = Barbero.query.all()
@@ -20,7 +19,11 @@ def get_barberos_bp():
     @bp.route('', methods=['POST'])
     def create_barbero():
         data = request.get_json()
-        barbero = Barbero(nombre=data.get('nombre'), telefono=data.get('telefono'))
+        barbero = Barbero(
+            nombre=data.get('nombre'),
+            telefono=data.get('telefono'),
+            email=data.get('email')
+        )
         db.session.add(barbero)
         db.session.commit()
         return jsonify(barbero.to_dict()), 201
@@ -30,9 +33,12 @@ def get_barberos_bp():
         barbero = Barbero.query.get(id)
         if not barbero:
             return jsonify({'error': 'Barbero no encontrado'}), 404
+
         data = request.get_json()
         barbero.nombre = data.get('nombre', barbero.nombre)
         barbero.telefono = data.get('telefono', barbero.telefono)
+        barbero.email = data.get('email', barbero.email)
+
         db.session.commit()
         return jsonify(barbero.to_dict()), 200
 
@@ -41,6 +47,7 @@ def get_barberos_bp():
         barbero = Barbero.query.get(id)
         if not barbero:
             return jsonify({'error': 'Barbero no encontrado'}), 404
+
         db.session.delete(barbero)
         db.session.commit()
         return jsonify({'message': 'Barbero eliminado'}), 200
