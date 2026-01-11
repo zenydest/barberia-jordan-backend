@@ -177,30 +177,40 @@ def token_requerido(f):
     def decorated(*args, **kwargs):
         if request.method == 'OPTIONS':
             return '', 200
+        
+        print(f"🔍 Headers recibidos: {request.headers}")  # ← LOG
             
         token = None
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
+            print(f"🔑 Auth header: {auth_header}")  # ← LOG
             try:
                 token = auth_header.split(" ")[1]
+                print(f"✅ Token extraído: {token[:20]}...")  # ← LOG
             except IndexError:
                 return jsonify({'error': 'Formato de token inválido'}), 401
         
         if not token:
+            print(f"❌ No hay token")  # ← LOG
             return jsonify({'error': 'Token no encontrado'}), 401
         
         usuario_id = verificar_token(token)
+        print(f"👤 Usuario ID del token: {usuario_id}")  # ← LOG
         if not usuario_id:
+            print(f"❌ Token inválido o expirado")  # ← LOG
             return jsonify({'error': 'Token inválido o expirado'}), 401
         
         usuario = Usuario.query.get(usuario_id)
         if not usuario:
+            print(f"❌ Usuario no encontrado")  # ← LOG
             return jsonify({'error': 'Usuario no encontrado'}), 401
         
+        print(f"✅ Token verificado para usuario: {usuario.email}")  # ← LOG
         request.usuario = usuario
         return f(*args, **kwargs)
     
     return decorated
+
 
 def admin_requerido(f):
     @wraps(f)
