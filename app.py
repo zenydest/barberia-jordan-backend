@@ -13,7 +13,14 @@ load_dotenv()
 app = Flask(__name__)
 
 # Configuración
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///barberia.db')
+# Configurar DATABASE_URI con soporte para PostgreSQL v3
+database_url = os.getenv('DATABASE_URL', 'sqlite:///barberia.db')
+
+# Si es PostgreSQL, cambiar el dialect a psycopg (v3)
+if database_url.startswith('postgresql://'):
+    database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'tu-clave-secreta-cambiar-en-produccion')
 app.config['JWT_EXPIRATION_HOURS'] = 24
