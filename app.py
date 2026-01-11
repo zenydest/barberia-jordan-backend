@@ -24,7 +24,7 @@ db = SQLAlchemy(app)
 allowed_origins = [
     "http://localhost:5173",  # Dev
     "http://localhost:3000",  # Dev alternativo
-    "https://barberia-jordan.vercel.app"  # Producción (cambiar luego)
+    "https://barberia-jordan-frontend.vercel.app"  # Producción (cambiar luego)
 ]
 
 CORS(app, resources={r"/api/*": {
