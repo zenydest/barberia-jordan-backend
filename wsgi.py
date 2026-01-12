@@ -1,15 +1,12 @@
-import os
-import sys
-from app import app, db
+from app import app, db, Usuario
 
-# Ejecutar en contexto de la app
+# Inicializar BD al cargar
 with app.app_context():
-    print("🔄 Creando tablas de base de datos...")
+    print("🔄 Inicializando PostgreSQL...")
     db.create_all()
-    print("✅ Tablas creadas exitosamente")
+    print("✅ Tablas creadas/verificadas")
     
     # Crear admin si no existe
-    from app import Usuario
     if not Usuario.query.filter_by(email='Rodritapia92@gmail.com').first():
         admin = Usuario(
             email='Rodritapia92@gmail.com',
@@ -19,6 +16,9 @@ with app.app_context():
         admin.set_password('rodritapia924321')
         db.session.add(admin)
         db.session.commit()
-        print("✅ Admin creado: Rodritapia92@gmail.com")
+        print("✅ Admin creado")
     else:
         print("ℹ️ Admin ya existe")
+
+if __name__ == '__main__':
+    app.run()
