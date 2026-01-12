@@ -28,15 +28,6 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'tu-clave-secreta-cambiar-en-
 app.config['JWT_EXPIRATION_HOURS'] = 24
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'poolclass': NullPool,
-    'pool_size': 3,              # ← DE 5 → 3 (más conservador)
-    'max_overflow': 5,           # ← DE 10 → 5
-    'pool_pre_ping': True,       # ← MANTENER
-    'pool_recycle': 900,         # ← DE 1800 → 900 (15 min como Railway)
-    'connect_args': {
-        'connect_timeout': 10,
-        'keepalives': 1,
-        'keepalives_idle': 30,
-    }
 }
 
 db = SQLAlchemy(app)
