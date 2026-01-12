@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.pool import NullPool
 from datetime import datetime, timedelta
 import jwt
 import os
@@ -27,7 +27,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'tu-clave-secreta-cambiar-en-produccion')
 app.config['JWT_EXPIRATION_HOURS'] = 24
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'poolclass': QueuePool,
+    'poolclass': NullPool,
     'pool_size': 3,              # ← DE 5 → 3 (más conservador)
     'max_overflow': 5,           # ← DE 10 → 5
     'pool_pre_ping': True,       # ← MANTENER
