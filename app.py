@@ -621,15 +621,20 @@ def health():
 def health_pool():
     """Monitorea el estado del connection pool"""
     try:
-        pool = db.engine.pool
+        # Con NullPool no hay pool que monitorear
+        # Simplemente verificamos que la BD está accesible
+        db.session.execute(db.text('SELECT 1'))
         return jsonify({
-            'pool_size': pool.size(),
-            'checked_in': pool.checkedin(),
-            'checked_out': pool.checkedout(),
-            'overflow': pool.overflow()
+            'status': 'healthy',
+            'pool_type': 'NullPool',
+            'message': 'Base de datos accesible'
         }), 200
-    except:
-        return jsonify({'status': 'error'}), 500
+    except Exception as e:
+        print(f"🔴 ERROR en health_pool: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
 
 
 # ==================== INICIALIZAR BD ====================
