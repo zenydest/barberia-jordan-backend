@@ -612,6 +612,7 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         
+        # Crear admin solo si no existe
         if not Usuario.query.filter_by(email='Rodritapia92@gmail.com').first():
             admin = Usuario(
                 email='Rodritapia92@gmail.com',
@@ -621,8 +622,23 @@ if __name__ == '__main__':
             admin.set_password('rodritapia924321')
             db.session.add(admin)
             db.session.commit()
-            print("✅ Admin creado: Rodritapia92@gmail.com / rodritapia924321")
+            print("✅ Admin creado")
     
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+
+# ✅ Inicializar BD al arrancar con gunicorn (PRODUCCIÓN)
+with app.app_context():
+    db.create_all()
+    if not Usuario.query.filter_by(email='Rodritapia92@gmail.com').first():
+        admin = Usuario(
+            email='Rodritapia92@gmail.com',
+            nombre='Administrador',
+            rol='admin'
+        )
+        admin.set_password('rodritapia924321')
+        db.session.add(admin)
+        db.session.commit()
+        print("✅ Admin creado en producción")
 
