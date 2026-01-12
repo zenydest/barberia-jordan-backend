@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.pool import QueuePool
 from datetime import datetime, timedelta
 import jwt
 import os
@@ -25,6 +26,18 @@ app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'tu-clave-secreta-cambiar-en-produccion')
 app.config['JWT_EXPIRATION_HOURS'] = 24
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'poolclass': QueuePool,
+    'pool_size': 5,              # Conexiones base en el pool
+    'max_overflow': 10,          # Conexiones adicionales si es necesario
+    'pool_pre_ping': True,       # ← ESTO ES CRÍTICO: Verifica conexión antes de usar
+    'pool_recycle': 1800,        # Recicla cada 30 min (Railway cierra a los 15)
+    'connect_args': {
+        'connect_timeout': 10,
+        'keepalives': 1,         # ← Mantiene conexión activa
+        'keepalives_idle': 30,   # Segundos antes de enviar keepalive
+    }
+}
 
 db = SQLAlchemy(app)
 
@@ -40,6 +53,15 @@ CORS(app, resources={r"/api/*": {
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     "allow_headers": ["Content-Type", "Authorization"]
 }})
+
+@app.errorhandler(Exception)
+def handle_db_error(error):
+    """Maneja errores de conexión elegantemente"""
+    if 'EOF detected' in str(error) or 'connection' in str(error).lower():
+        db.session.remove()
+        return jsonify({'error': 'Conexión temporal a BD - reintentar'}), 503
+    print(f"❌ Error: {error}")
+    return jsonify({'error': 'Error interno'}), 500
 
 # ==================== MODELOS ====================
 
@@ -603,6 +625,21 @@ def eliminar_cita(id):
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'API activa'}), 200
+
+@app.route('/api/health/pool', methods=['GET'])
+def health_pool():
+    """Monitorea el estado del connection pool"""
+    try:
+        pool = db.engine.pool
+        return jsonify({
+            'pool_size': pool.size(),
+            'checked_in': pool.checkedin(),
+            'checked_out': pool.checkedout(),
+            'overflow': pool.overflow()
+        }), 200
+    except:
+        return jsonify({'status': 'error'}), 500
+
 
 # ==================== INICIALIZAR BD ====================
 

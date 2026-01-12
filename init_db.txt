@@ -1,15 +1,11 @@
-import os
-import sys
-from app import app, db
+from app import app, db, Usuario
 
-# Ejecutar en contexto de la app
 with app.app_context():
-    print("🔄 Creando tablas de base de datos...")
+    # Crear todas las tablas
     db.create_all()
-    print("✅ Tablas creadas exitosamente")
+    print("✅ Tablas creadas en PostgreSQL")
     
     # Crear admin si no existe
-    from app import Usuario
     if not Usuario.query.filter_by(email='Rodritapia92@gmail.com').first():
         admin = Usuario(
             email='Rodritapia92@gmail.com',
