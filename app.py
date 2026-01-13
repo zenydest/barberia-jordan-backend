@@ -678,9 +678,6 @@ def health_pool():
 
 # ==================== INICIALIZAR BD ====================
 
-
-# Inicializar BD al arrancar (funciona tanto con python app.py como con gunicorn)
-# ✅ CORRECTO (actualizado)
 with app.app_context():
     db.create_all()
     print("✅ Base de datos inicializada")
@@ -690,7 +687,6 @@ with app.app_context():
     admin_user = Usuario.query.filter_by(email=admin_email).first()
     
     if not admin_user:
-        # Si no existe, crear el admin
         admin_user = Usuario(
             email=admin_email,
             nombre='Administrador',
@@ -701,10 +697,38 @@ with app.app_context():
         db.session.commit()
         print("✅ Admin creado")
     else:
-        # Si existe pero no es admin, actualizar el rol
         if admin_user.rol != 'admin':
             admin_user.rol = 'admin'
             db.session.commit()
             print(f"✅ Rol de {admin_email} actualizado a 'admin'")
         else:
             print(f"✅ Admin {admin_email} verificado")
+    
+    # ===== AGREGAR DATOS DE PRUEBA =====
+    
+    # Crear barberos si no existen
+    if Barbero.query.count() == 0:
+        barberos = [
+            Barbero(nombre='Juan Carlos', email='juan@example.com', telefono='1234567890', comision=25.0),
+            Barbero(nombre='Pedro López', email='pedro@example.com', telefono='0987654321', comision=20.0),
+            Barbero(nombre='Miguel Ruiz', email='miguel@example.com', telefono='1122334455', comision=22.0),
+        ]
+        db.session.add_all(barberos)
+        db.session.commit()
+        print("✅ Barberos creados")
+    else:
+        print(f"ℹ️ {Barbero.query.count()} barberos ya existen")
+    
+    # Crear servicios si no existen
+    if Servicio.query.count() == 0:
+        servicios = [
+            Servicio(nombre='Corte de Cabello', precio=15.00, descripcion='Corte clásico'),
+            Servicio(nombre='Barba', precio=10.00, descripcion='Afeitado profesional'),
+            Servicio(nombre='Corte + Barba', precio=23.00, descripcion='Combo completo'),
+            Servicio(nombre='Líneas', precio=8.00, descripcion='Líneas de precisión'),
+        ]
+        db.session.add_all(servicios)
+        db.session.commit()
+        print("✅ Servicios creados")
+    else:
+        print(f"ℹ️ {Servicio.query.count()} servicios ya existen")
