@@ -676,6 +676,46 @@ def health_pool():
             'error': str(e)
         }), 500
 
+# ==================== RUTA INICIALIZAR DATOS ====================
+
+@app.route('/api/init-data', methods=['POST'])
+def init_data():
+    """Endpoint para inicializar datos de prueba"""
+    try:
+        # Crear barberos
+        if Barbero.query.count() == 0:
+            barberos = [
+                Barbero(nombre='Juan Carlos', email='juan@example.com', telefono='1234567890', comision=25.0),
+                Barbero(nombre='Pedro López', email='pedro@example.com', telefono='0987654321', comision=20.0),
+                Barbero(nombre='Miguel Ruiz', email='miguel@example.com', telefono='1122334455', comision=22.0),
+            ]
+            db.session.add_all(barberos)
+            db.session.commit()
+            print("✅ Barberos creados")
+        
+        # Crear servicios
+        if Servicio.query.count() == 0:
+            servicios = [
+                Servicio(nombre='Corte de Cabello', precio=15.00, descripcion='Corte clásico'),
+                Servicio(nombre='Barba', precio=10.00, descripcion='Afeitado profesional'),
+                Servicio(nombre='Corte + Barba', precio=23.00, descripcion='Combo completo'),
+                Servicio(nombre='Líneas', precio=8.00, descripcion='Líneas de precisión'),
+            ]
+            db.session.add_all(servicios)
+            db.session.commit()
+            print("✅ Servicios creados")
+        
+        return jsonify({
+            'mensaje': 'Datos inicializados correctamente',
+            'barberos': Barbero.query.count(),
+            'servicios': Servicio.query.count()
+        }), 200
+    
+    except Exception as e:
+        print(f"❌ Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 # ==================== INICIALIZAR BD ====================
 
 with app.app_context():
@@ -703,32 +743,3 @@ with app.app_context():
             print(f"✅ Rol de {admin_email} actualizado a 'admin'")
         else:
             print(f"✅ Admin {admin_email} verificado")
-    
-    # ===== AGREGAR DATOS DE PRUEBA =====
-    
-    # Crear barberos si no existen
-    if Barbero.query.count() == 0:
-        barberos = [
-            Barbero(nombre='Juan Carlos', email='juan@example.com', telefono='1234567890', comision=25.0),
-            Barbero(nombre='Pedro López', email='pedro@example.com', telefono='0987654321', comision=20.0),
-            Barbero(nombre='Miguel Ruiz', email='miguel@example.com', telefono='1122334455', comision=22.0),
-        ]
-        db.session.add_all(barberos)
-        db.session.commit()
-        print("✅ Barberos creados")
-    else:
-        print(f"ℹ️ {Barbero.query.count()} barberos ya existen")
-    
-    # Crear servicios si no existen
-    if Servicio.query.count() == 0:
-        servicios = [
-            Servicio(nombre='Corte de Cabello', precio=15.00, descripcion='Corte clásico'),
-            Servicio(nombre='Barba', precio=10.00, descripcion='Afeitado profesional'),
-            Servicio(nombre='Corte + Barba', precio=23.00, descripcion='Combo completo'),
-            Servicio(nombre='Líneas', precio=8.00, descripcion='Líneas de precisión'),
-        ]
-        db.session.add_all(servicios)
-        db.session.commit()
-        print("✅ Servicios creados")
-    else:
-        print(f"ℹ️ {Servicio.query.count()} servicios ya existen")
