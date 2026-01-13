@@ -680,23 +680,31 @@ def health_pool():
 
 
 # Inicializar BD al arrancar (funciona tanto con python app.py como con gunicorn)
+# ✅ CORRECTO (actualizado)
 with app.app_context():
     db.create_all()
     print("✅ Base de datos inicializada")
     
-    # Crear admin solo si no existe
-    if not Usuario.query.filter_by(email='Rodritapia92@gmail.com').first():
-        admin = Usuario(
-            email='Rodritapia92@gmail.com',
+    # Verificar y asegurar que el admin tenga el rol correcto
+    admin_email = 'Rodritapia92@gmail.com'
+    admin_user = Usuario.query.filter_by(email=admin_email).first()
+    
+    if not admin_user:
+        # Si no existe, crear el admin
+        admin_user = Usuario(
+            email=admin_email,
             nombre='Administrador',
             rol='admin'
         )
-        admin.set_password('rodritapia924321')
-        db.session.add(admin)
+        admin_user.set_password('rodritapia924321')
+        db.session.add(admin_user)
         db.session.commit()
         print("✅ Admin creado")
-
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    else:
+        # Si existe pero no es admin, actualizar el rol
+        if admin_user.rol != 'admin':
+            admin_user.rol = 'admin'
+            db.session.commit()
+            print(f"✅ Rol de {admin_email} actualizado a 'admin'")
+        else:
+            print(f"✅ Admin {admin_email} verificado")
