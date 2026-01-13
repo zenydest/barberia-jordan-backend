@@ -722,7 +722,6 @@ with app.app_context():
     db.create_all()
     print("✅ Base de datos inicializada")
     
-    # Verificar y asegurar que el admin tenga el rol correcto
     admin_email = 'Rodritapia92@gmail.com'
     admin_user = Usuario.query.filter_by(email=admin_email).first()
     
@@ -742,4 +741,6 @@ with app.app_context():
             db.session.commit()
             print(f"✅ Rol de {admin_email} actualizado a 'admin'")
         else:
+            print(f"✅ Admin {admin_email} verificado")
+
             print(f"✅ Admin {admin_email} verificado")
