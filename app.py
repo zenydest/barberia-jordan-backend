@@ -676,26 +676,6 @@ def health_pool():
             'error': str(e)
         }), 500
 
-
-@app.route('/api/fix-admin', methods=['GET'])
-def fix_admin():
-    """TEMPORAL: Arreglar rol de admin"""
-    try:
-        usuario = Usuario.query.filter_by(email='Rodritapia92@gmail.com').first()
-        if usuario:
-            usuario.rol = 'admin'
-            db.session.commit()
-            return jsonify({
-                'mensaje': 'Admin actualizado correctamente',
-                'email': usuario.email,
-                'rol': usuario.rol
-            }), 200
-        return jsonify({'error': 'Usuario no encontrado'}), 404
-    except Exception as e:
-        print(f"❌ Error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
 # ==================== INICIALIZAR BD ====================
 
 
