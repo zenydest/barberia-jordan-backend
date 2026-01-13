@@ -678,7 +678,7 @@ def health_pool():
 
 # ==================== RUTA INICIALIZAR DATOS ====================
 
-@app.route('/api/init-data', methods=['POST'])
+@app.route('/api/init-data', methods=['GET', 'POST'])
 def init_data():
     """Endpoint para inicializar datos de prueba"""
     try:
