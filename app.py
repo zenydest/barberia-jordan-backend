@@ -9,11 +9,15 @@ from functools import wraps
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 
+
 load_dotenv()
+
 
 app = Flask(__name__)
 
+
 database_url = os.getenv('DATABASE_URL')
+
 
 # Si no hay DATABASE_URL, usa SQLite en local
 if not database_url:
@@ -30,20 +34,24 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'poolclass': NullPool,
 }
 
+
 db = SQLAlchemy(app)
+
 
 # CORS mejorado
 allowed_origins = [
     "http://localhost:5173",  # Dev
     "http://localhost:3000",  # Dev alternativo
-    "https://barberia-jordan-frontend.vercel.app"  # Producción (cambiar luego)
+    "https://barberia-jordan-frontend.vercel.app"  # Producción
 ]
+
 
 CORS(app, resources={r"/api/*": {
     "origins": allowed_origins,
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     "allow_headers": ["Content-Type", "Authorization"]
 }})
+
 
 @app.errorhandler(Exception)
 def handle_db_error(error):
@@ -54,7 +62,9 @@ def handle_db_error(error):
     print(f"❌ Error: {error}")
     return jsonify({'error': 'Error interno'}), 500
 
+
 # ==================== MODELOS ====================
+
 
 class Usuario(db.Model):
     __tablename__ = 'usuarios'
@@ -83,6 +93,7 @@ class Usuario(db.Model):
             'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d')
         }
 
+
 class Barbero(db.Model):
     __tablename__ = 'barberos'
     
@@ -90,7 +101,7 @@ class Barbero(db.Model):
     nombre = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=True)
     telefono = db.Column(db.String(20), nullable=True)
-    comision = db.Column(db.Float, default=20.0)  # Comisión en porcentaje
+    comision = db.Column(db.Float, default=20.0)
     estado = db.Column(db.String(20), default='activo')
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -104,6 +115,7 @@ class Barbero(db.Model):
             'estado': self.estado,
             'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d')
         }
+
 
 class Cliente(db.Model):
     __tablename__ = 'clientes'
@@ -123,6 +135,7 @@ class Cliente(db.Model):
             'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d')
         }
 
+
 class Servicio(db.Model):
     __tablename__ = 'servicios'
     
@@ -140,6 +153,7 @@ class Servicio(db.Model):
             'descripcion': self.descripcion,
             'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d')
         }
+
 
 class Cita(db.Model):
     __tablename__ = 'citas'
@@ -170,7 +184,9 @@ class Cita(db.Model):
             'notas': self.notas
         }
 
+
 # ==================== FUNCIONES DE AUTENTICACIÓN ====================
+
 
 def generar_token(usuario_id):
     payload = {
@@ -179,6 +195,7 @@ def generar_token(usuario_id):
     }
     return jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
 
+
 def verificar_token(token):
     try:
         payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
@@ -186,40 +203,41 @@ def verificar_token(token):
     except:
         return None
 
+
 def token_requerido(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if request.method == 'OPTIONS':
             return '', 200
         
-        print(f"🔍 Headers recibidos: {request.headers}")  # ← LOG
+        print(f"🔍 Headers recibidos: {request.headers}")
             
         token = None
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
-            print(f"🔑 Auth header: {auth_header}")  # ← LOG
+            print(f"🔑 Auth header: {auth_header}")
             try:
                 token = auth_header.split(" ")[1]
-                print(f"✅ Token extraído: {token[:20]}...")  # ← LOG
+                print(f"✅ Token extraído: {token[:20]}...")
             except IndexError:
                 return jsonify({'error': 'Formato de token inválido'}), 401
         
         if not token:
-            print(f"❌ No hay token")  # ← LOG
+            print(f"❌ No hay token")
             return jsonify({'error': 'Token no encontrado'}), 401
         
         usuario_id = verificar_token(token)
-        print(f"👤 Usuario ID del token: {usuario_id}")  # ← LOG
+        print(f"👤 Usuario ID del token: {usuario_id}")
         if not usuario_id:
-            print(f"❌ Token inválido o expirado")  # ← LOG
+            print(f"❌ Token inválido o expirado")
             return jsonify({'error': 'Token inválido o expirado'}), 401
         
         usuario = Usuario.query.get(usuario_id)
         if not usuario:
-            print(f"❌ Usuario no encontrado")  # ← LOG
+            print(f"❌ Usuario no encontrado")
             return jsonify({'error': 'Usuario no encontrado'}), 401
         
-        print(f"✅ Token verificado para usuario: {usuario.email}")  # ← LOG
+        print(f"✅ Token verificado para usuario: {usuario.email}")
         request.usuario = usuario
         return f(*args, **kwargs)
     
@@ -236,7 +254,9 @@ def admin_requerido(f):
     
     return decorated
 
+
 # ==================== RUTAS DE AUTENTICACIÓN ====================
+
 
 @app.route('/api/auth/registro', methods=['POST', 'OPTIONS'])
 def registro():
@@ -269,6 +289,7 @@ def registro():
         'usuario': nuevo_usuario.to_dict()
     }), 201
 
+
 @app.route('/api/auth/login', methods=['POST', 'OPTIONS'])
 def login():
     if request.method == 'OPTIONS':
@@ -292,12 +313,15 @@ def login():
         'usuario': usuario.to_dict()
     }), 200
 
+
 @app.route('/api/auth/me', methods=['GET', 'OPTIONS'])
 @token_requerido
 def get_current_usuario():
     return jsonify(request.usuario.to_dict()), 200
 
+
 # ==================== RUTAS BARBEROS ====================
+
 
 @app.route('/api/barberos', methods=['GET', 'OPTIONS'])
 @token_requerido
@@ -306,6 +330,7 @@ def get_barberos():
         return '', 200
     barberos = Barbero.query.all()
     return jsonify([barbero.to_dict() for barbero in barberos]), 200
+
 
 @app.route('/api/barberos', methods=['POST', 'OPTIONS'])
 @admin_requerido
@@ -328,6 +353,7 @@ def crear_barbero():
     db.session.commit()
     
     return jsonify(nuevo_barbero.to_dict()), 201
+
 
 @app.route('/api/barberos/<int:id>', methods=['PUT', 'OPTIONS'])
 @admin_requerido
@@ -368,7 +394,9 @@ def eliminar_barbero(id):
     
     return jsonify({'mensaje': 'Barbero eliminado correctamente'}), 200
 
+
 # ==================== RUTAS CLIENTES ====================
+
 
 @app.route('/api/clientes', methods=['GET', 'OPTIONS'])
 @token_requerido
@@ -377,6 +405,7 @@ def get_clientes():
         return '', 200
     clientes = Cliente.query.all()
     return jsonify([cliente.to_dict() for cliente in clientes]), 200
+
 
 @app.route('/api/clientes', methods=['POST', 'OPTIONS'])
 @token_requerido
@@ -399,6 +428,7 @@ def crear_cliente():
     
     return jsonify(nuevo_cliente.to_dict()), 201
 
+
 @app.route('/api/clientes/<int:id>', methods=['PUT', 'OPTIONS'])
 @token_requerido
 def actualizar_cliente(id):
@@ -419,6 +449,7 @@ def actualizar_cliente(id):
     db.session.commit()
     return jsonify(cliente.to_dict()), 200
 
+
 @app.route('/api/clientes/<int:id>', methods=['DELETE', 'OPTIONS'])
 @token_requerido
 def eliminar_cliente(id):
@@ -433,7 +464,9 @@ def eliminar_cliente(id):
     
     return jsonify({'mensaje': 'Cliente eliminado correctamente'}), 200
 
+
 # ==================== RUTAS SERVICIOS ====================
+
 
 @app.route('/api/servicios', methods=['GET', 'OPTIONS'])
 @token_requerido
@@ -442,6 +475,7 @@ def get_servicios():
         return '', 200
     servicios = Servicio.query.all()
     return jsonify([servicio.to_dict() for servicio in servicios]), 200
+
 
 @app.route('/api/servicios', methods=['POST', 'OPTIONS'])
 @admin_requerido
@@ -464,6 +498,7 @@ def crear_servicio():
     
     return jsonify(nuevo_servicio.to_dict()), 201
 
+
 @app.route('/api/servicios/<int:id>', methods=['PUT', 'OPTIONS'])
 @admin_requerido
 def actualizar_servicio(id):
@@ -484,6 +519,7 @@ def actualizar_servicio(id):
     db.session.commit()
     return jsonify(servicio.to_dict()), 200
 
+
 @app.route('/api/servicios/<int:id>', methods=['DELETE', 'OPTIONS'])
 @admin_requerido
 def eliminar_servicio(id):
@@ -498,7 +534,9 @@ def eliminar_servicio(id):
     
     return jsonify({'mensaje': 'Servicio eliminado correctamente'}), 200
 
+
 # ==================== RUTAS CITAS ====================
+
 
 @app.route('/api/citas', methods=['GET', 'OPTIONS'])
 @token_requerido
@@ -507,6 +545,7 @@ def get_citas():
         return '', 200
     citas = Cita.query.order_by(Cita.fecha.desc()).all()
     return jsonify([cita.to_dict() for cita in citas]), 200
+
 
 @app.route('/api/citas', methods=['POST', 'OPTIONS'])
 @token_requerido
@@ -560,7 +599,6 @@ def actualizar_cita(id):
     
     data = request.get_json()
     
-    # Validar y actualizar datos
     if 'cliente_id' in data:
         if data['cliente_id']:
             cliente = Cliente.query.get(data['cliente_id'])
@@ -596,6 +634,7 @@ def actualizar_cita(id):
     
     return jsonify(cita.to_dict()), 200
 
+
 @app.route('/api/citas/<int:id>', methods=['DELETE', 'OPTIONS'])
 @token_requerido
 def eliminar_cita(id):
@@ -611,18 +650,19 @@ def eliminar_cita(id):
     
     return jsonify({'mensaje': 'Cita eliminada correctamente'}), 200
 
+
 # ==================== RUTAS GENERALES ====================
+
 
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'API activa'}), 200
 
+
 @app.route('/api/health/pool', methods=['GET'])
 def health_pool():
     """Monitorea el estado del connection pool"""
     try:
-        # Con NullPool no hay pool que monitorear
-        # Simplemente verificamos que la BD está accesible
         db.session.execute(db.text('SELECT 1'))
         return jsonify({
             'status': 'healthy',
@@ -635,7 +675,8 @@ def health_pool():
             'status': 'error',
             'error': str(e)
         }), 500
-    
+
+
 @app.route('/api/fix-admin', methods=['GET'])
 def fix_admin():
     """TEMPORAL: Arreglar rol de admin"""
@@ -655,34 +696,15 @@ def fix_admin():
         return jsonify({'error': str(e)}), 500
 
 
-
 # ==================== INICIALIZAR BD ====================
 
-if __name__ == '__main__':
-    import os
-    
-    with app.app_context():
-        db.create_all()
-        
-        # Crear admin solo si no existe
-        if not Usuario.query.filter_by(email='Rodritapia92@gmail.com').first():
-            admin = Usuario(
-                email='Rodritapia92@gmail.com',
-                nombre='Administrador',
-                rol='admin'
-            )
-            admin.set_password('rodritapia924321')
-            db.session.add(admin)
-            db.session.commit()
-            print("✅ Admin creado")
-    
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
 
-
-# ✅ Inicializar BD al arrancar con gunicorn (PRODUCCIÓN)
+# Inicializar BD al arrancar (funciona tanto con python app.py como con gunicorn)
 with app.app_context():
     db.create_all()
+    print("✅ Base de datos inicializada")
+    
+    # Crear admin solo si no existe
     if not Usuario.query.filter_by(email='Rodritapia92@gmail.com').first():
         admin = Usuario(
             email='Rodritapia92@gmail.com',
@@ -692,5 +714,9 @@ with app.app_context():
         admin.set_password('rodritapia924321')
         db.session.add(admin)
         db.session.commit()
-        print("✅ Admin creado en producción")
+        print("✅ Admin creado")
 
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
