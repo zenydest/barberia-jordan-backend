@@ -306,13 +306,22 @@ def logout():
 # ==================== RUTAS BARBEROS ====================
 
 @app.route('/api/barberos', methods=['GET', 'OPTIONS'])
-@admin_requerido
 def get_barberos():
     if request.method == 'OPTIONS':
         return '', 200
     
-    barberos = Barbero.query.all()
-    return jsonify([barbero.to_dict() for barbero in barberos]), 200
+    # Verificar admin SOLO para GET
+    if not request.environ.get('HTTP_AUTHORIZATION'):
+        return jsonify({'error': 'Token no encontrado'}), 401
+    
+    # Aplicar decorador manualmente
+    usuario_id = verificar_token(request.headers['Authorization'].split(' ')[1])
+    if not usuario_id:
+        return jsonify({'error': 'Token inválido'}), 401
+    
+    usuario = Usuario.query.get(usuario_id)
+    if not usuario or usuario.rol != 'admin':
+        return jsonify({'error': 'Acceso denegado'}), 403
 
 @app.route('/api/barberos', methods=['POST', 'OPTIONS'])
 @admin_requerido
