@@ -316,7 +316,7 @@ def get_current_usuario():
 
 
 @app.route('/api/barberos', methods=['GET', 'OPTIONS'])
-@token_requerido
+@admin_requerido
 def get_barberos():
     if request.method == 'OPTIONS':
         return '', 200
@@ -461,7 +461,7 @@ def eliminar_cliente(id):
 
 
 @app.route('/api/servicios', methods=['GET', 'OPTIONS'])
-@token_requerido
+@admin_requerido
 def get_servicios():
     if request.method == 'OPTIONS':
         return '', 200
