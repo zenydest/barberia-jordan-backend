@@ -310,18 +310,36 @@ def get_barberos():
     if request.method == 'OPTIONS':
         return '', 200
     
-    # Verificar admin SOLO para GET
-    if not request.environ.get('HTTP_AUTHORIZATION'):
+    # Verificar token manualmente
+    token = None
+    if 'Authorization' in request.headers:
+        try:
+            token = request.headers['Authorization'].split(" ")[1]
+        except IndexError:
+            return jsonify({'error': 'Formato de token inválido'}), 401
+    
+    if not token:
         return jsonify({'error': 'Token no encontrado'}), 401
     
-    # Aplicar decorador manualmente
-    usuario_id = verificar_token(request.headers['Authorization'].split(' ')[1])
+    usuario_id = verificar_token(token)
     if not usuario_id:
-        return jsonify({'error': 'Token inválido'}), 401
+        return jsonify({'error': 'Token inválido o expirado'}), 401
     
     usuario = Usuario.query.get(usuario_id)
-    if not usuario or usuario.rol != 'admin':
-        return jsonify({'error': 'Acceso denegado'}), 403
+    if not usuario:
+        return jsonify({'error': 'Usuario no encontrado'}), 401
+    
+    # Verificar que sea admin
+    if usuario.rol != 'admin':
+        return jsonify({'error': 'Acceso denegado. Se requiere rol de administrador'}), 403
+    
+    try:
+        barberos = Barbero.query.all()
+        return jsonify([barbero.to_dict() for barbero in barberos]), 200
+    except Exception as e:
+        print(f"❌ Error en get_barberos: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/barberos', methods=['POST', 'OPTIONS'])
 @admin_requerido
