@@ -682,10 +682,13 @@ def health_pool():
 def init_data():
     """Endpoint para inicializar datos de prueba"""
     try:
-        # Limpiar datos viejos
-        Barbero.query.delete()
-        Servicio.query.delete()
+        # Limpiar datos viejos EN EL ORDEN CORRECTO (respetando foreign keys)
+        Cita.query.delete()              # ← Primero las citas
+        Barbero.query.delete()           # ← Luego los barberos
+        Servicio.query.delete()          # ← Luego los servicios
+        Cliente.query.delete()           # ← Y los clientes
         db.session.commit()
+        print("✅ Datos viejos eliminados")
         
         # Crear barberos
         barberos = [
@@ -715,8 +718,10 @@ def init_data():
         }), 200
     
     except Exception as e:
+        db.session.rollback()
         print(f"❌ Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
 
 
 
