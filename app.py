@@ -13,6 +13,7 @@ load_dotenv()
 
 
 app = Flask(__name__)
+app.config['ENV'] = 'production' if os.getenv('DATABASE_URL') else 'development'
 
 
 # ==================== CONFIGURACIÓN DE BD ====================
@@ -51,6 +52,7 @@ def handle_preflight():
         response.headers.add("Access-Control-Allow-Origin", "*")
         response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
         response.headers.add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        response.headers.add("Access-Control-Max-Age", "3600")
         return response, 200
 
 
@@ -60,6 +62,7 @@ def after_request(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Max-Age"] = "3600"
     return response
 
 
