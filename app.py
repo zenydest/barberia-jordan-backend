@@ -47,6 +47,16 @@ CORS(app,
     }}
 )
 
+# Handler CORS mejorado - Agregar después de CORS(app, ...)
+@app.after_request
+def after_request(response):
+    """Añade headers CORS a todas las respuestas"""
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    response.headers['Access-Control-Expose-Headers'] = 'Content-Type'
+    return response
+
 @app.errorhandler(Exception)
 def handle_db_error(error):
     """Maneja errores de conexión elegantemente"""
