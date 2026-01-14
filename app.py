@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify, Response
-from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.pool import NullPool
 from datetime import datetime, timedelta
@@ -42,35 +41,25 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 db = SQLAlchemy(app)
 
 
-# ==================== CONFIGURACIÓN CORS ====================
-
-CORS(app, 
-     origins=['*'],
-     allow_headers=['Content-Type', 'Authorization'],
-     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-     supports_credentials=False,
-     max_age=3600)
-
+# ==================== CONFIGURACIÓN CORS SIMPLE Y FUNCIONAL ====================
 
 @app.before_request
 def handle_preflight():
-    """Maneja las peticiones preflight de CORS"""
-    if request.method == 'OPTIONS':
+    """Maneja preflight OPTIONS requests"""
+    if request.method == "OPTIONS":
         response = Response()
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-        response.headers.add('Access-Control-Max-Age', '3600')
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        response.headers.add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
         return response, 200
 
 
 @app.after_request
 def after_request(response):
-    """Añade headers CORS a todas las respuestas"""
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-    response.headers['Access-Control-Expose-Headers'] = 'Content-Type'
+    """Añade headers CORS a TODAS las respuestas"""
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     return response
 
 
