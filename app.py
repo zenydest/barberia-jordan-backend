@@ -682,28 +682,31 @@ def health_pool():
 def init_data():
     """Endpoint para inicializar datos de prueba"""
     try:
+        # Limpiar datos viejos
+        Barbero.query.delete()
+        Servicio.query.delete()
+        db.session.commit()
+        
         # Crear barberos
-        if Barbero.query.count() == 0:
-            barberos = [
-                Barbero(nombre='Juan Carlos', email='juan@example.com', telefono='1234567890', comision=25.0),
-                Barbero(nombre='Pedro López', email='pedro@example.com', telefono='0987654321', comision=20.0),
-                Barbero(nombre='Miguel Ruiz', email='miguel@example.com', telefono='1122334455', comision=22.0),
-            ]
-            db.session.add_all(barberos)
-            db.session.commit()
-            print("✅ Barberos creados")
+        barberos = [
+            Barbero(nombre='Juan Carlos', email='juan@example.com', telefono='1234567890', comision=25.0),
+            Barbero(nombre='Pedro López', email='pedro@example.com', telefono='0987654321', comision=20.0),
+            Barbero(nombre='Miguel Ruiz', email='miguel@example.com', telefono='1122334455', comision=22.0),
+        ]
+        db.session.add_all(barberos)
+        db.session.commit()
+        print("✅ Barberos creados")
         
         # Crear servicios
-        if Servicio.query.count() == 0:
-            servicios = [
-                Servicio(nombre='Corte de Cabello', precio=15.00, descripcion='Corte clásico'),
-                Servicio(nombre='Barba', precio=10.00, descripcion='Afeitado profesional'),
-                Servicio(nombre='Corte + Barba', precio=23.00, descripcion='Combo completo'),
-                Servicio(nombre='Líneas', precio=8.00, descripcion='Líneas de precisión'),
-            ]
-            db.session.add_all(servicios)
-            db.session.commit()
-            print("✅ Servicios creados")
+        servicios = [
+            Servicio(nombre='Corte de Cabello', precio=15.00, descripcion='Corte clásico'),
+            Servicio(nombre='Barba', precio=10.00, descripcion='Afeitado profesional'),
+            Servicio(nombre='Corte + Barba', precio=23.00, descripcion='Combo completo'),
+            Servicio(nombre='Líneas', precio=8.00, descripcion='Líneas de precisión'),
+        ]
+        db.session.add_all(servicios)
+        db.session.commit()
+        print("✅ Servicios creados")
         
         return jsonify({
             'mensaje': 'Datos inicializados correctamente',
@@ -714,6 +717,7 @@ def init_data():
     except Exception as e:
         print(f"❌ Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
 
 
 # ==================== INICIALIZAR BD ====================
