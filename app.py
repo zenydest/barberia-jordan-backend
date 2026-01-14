@@ -5,28 +5,30 @@ from sqlalchemy.pool import NullPool
 from datetime import datetime, timedelta
 import jwt
 import os
+from pathlib import Path
 from functools import wraps
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 
-
 load_dotenv()
-
 
 app = Flask(__name__)
 
+# ==================== CONFIGURACIÓN DE BD ====================
+# ✅ PostgreSQL en Railway + SQLite en local
 
-database_url = os.getenv('DATABASE_URL')
+DATABASE_URL = os.getenv('DATABASE_URL')
 
+if DATABASE_URL:
+    # Production: Railway con PostgreSQL
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://', 1)
+else:
+    # Development: Local con SQLite
+    BASEDIR = Path(__file__).resolve().parent
+    DATABASE_PATH = BASEDIR / 'instance' / 'barberia.db'
+    DATABASE_PATH.parent.mkdir(exist_ok=True)
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DATABASE_PATH}'
 
-# Si no hay DATABASE_URL, usa SQLite en local
-if not database_url:
-    database_url = 'sqlite:///barberia.db'
-elif database_url.startswith('postgresql://'):
-    database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
-
-
-app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'tu-clave-secreta-cambiar-en-produccion')
 app.config['JWT_EXPIRATION_HOURS'] = 24
@@ -34,9 +36,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'poolclass': NullPool,
 }
 
-
 db = SQLAlchemy(app)
-
 
 # CORS mejorado
 CORS(app, 
