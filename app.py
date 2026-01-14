@@ -39,18 +39,10 @@ db = SQLAlchemy(app)
 
 
 # CORS mejorado
-allowed_origins = [
-    "http://localhost:5173",  # Dev
-    "http://localhost:3000",  # Dev alternativo
-    "https://barberia-jordan-frontend.vercel.app"  # Producción
-]
-
-
-CORS(app, resources={r"/api/*": {
-    "origins": allowed_origins,
-    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    "allow_headers": ["Content-Type", "Authorization"]
-}})
+CORS(app, 
+     resources={r"/api/*": {"origins": "*"}},
+     supports_credentials=True
+)
 
 
 @app.errorhandler(Exception)
@@ -723,14 +715,12 @@ def init_data():
         return jsonify({'error': str(e)}), 500
 
 
-
-
 # ==================== INICIALIZAR BD ====================
-
 with app.app_context():
     db.create_all()
     print("✅ Base de datos inicializada")
     
+    # Verificar y crear admin
     admin_email = 'Rodritapia92@gmail.com'
     admin_user = Usuario.query.filter_by(email=admin_email).first()
     
@@ -751,5 +741,32 @@ with app.app_context():
             print(f"✅ Rol de {admin_email} actualizado a 'admin'")
         else:
             print(f"✅ Admin {admin_email} verificado")
-
-            print(f"✅ Admin {admin_email} verificado")
+    
+    # ===== AGREGAR DATOS DE PRUEBA =====
+    
+    # Crear barberos si no existen
+    if Barbero.query.count() == 0:
+        barberos = [
+            Barbero(nombre='Juan Carlos', email='juan@example.com', telefono='1234567890', comision=25.0),
+            Barbero(nombre='Pedro López', email='pedro@example.com', telefono='0987654321', comision=20.0),
+            Barbero(nombre='Miguel Ruiz', email='miguel@example.com', telefono='1122334455', comision=22.0),
+        ]
+        db.session.add_all(barberos)
+        db.session.commit()
+        print("✅ Barberos creados")
+    else:
+        print(f"ℹ️ {Barbero.query.count()} barberos ya existen")
+    
+    # Crear servicios si no existen
+    if Servicio.query.count() == 0:
+        servicios = [
+            Servicio(nombre='Corte de Cabello', precio=15.00, descripcion='Corte clásico'),
+            Servicio(nombre='Barba', precio=10.00, descripcion='Afeitado profesional'),
+            Servicio(nombre='Corte + Barba', precio=23.00, descripcion='Combo completo'),
+            Servicio(nombre='Líneas', precio=8.00, descripcion='Líneas de precisión'),
+        ]
+        db.session.add_all(servicios)
+        db.session.commit()
+        print("✅ Servicios creados")
+    else:
+        print(f"ℹ️ {Servicio.query.count()} servicios ya existen")
