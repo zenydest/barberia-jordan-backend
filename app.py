@@ -40,9 +40,17 @@ db = SQLAlchemy(app)
 
 # CORS mejorado
 CORS(app, 
-     resources={r"/api/*": {"origins": "*"}},
-     supports_credentials=True
+     resources={r"/api/*": {
+         "origins": [
+             "http://localhost:3000",
+             "https://barberia-jordan-frontend.vercel.app"
+         ],
+         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         "allow_headers": ["Content-Type", "Authorization"],
+         "supports_credentials": True
+     }}
 )
+
 
 
 @app.errorhandler(Exception)
