@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import jwt
 import os
 from pathlib import Path
-from functools import wraps
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -16,14 +15,11 @@ app = Flask(__name__)
 
 # ==================== CONFIGURACIÓN DE BD ====================
 
-# ✅ PostgreSQL en Railway + SQLite en local
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 if DATABASE_URL:
-    # Production: Railway con PostgreSQL
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://', 1)
 else:
-    # Development: Local con SQLite
     BASEDIR = Path(__file__).resolve().parent
     DATABASE_PATH = BASEDIR / 'instance' / 'barberia.db'
     DATABASE_PATH.parent.mkdir(exist_ok=True)
@@ -187,56 +183,31 @@ def verificar_token(token):
     except:
         return None
 
-def token_requerido(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if request.method == 'OPTIONS':
-            return '', 200
-        
-        print(f"🔍 Headers recibidos: {request.headers}")
-        token = None
-        
-        if 'Authorization' in request.headers:
-            auth_header = request.headers['Authorization']
-            print(f"🔑 Auth header: {auth_header}")
-            try:
-                token = auth_header.split(" ")[1]
-                print(f"✅ Token extraído: {token[:20]}...")
-            except IndexError:
-                return jsonify({'error': 'Formato de token inválido'}), 401
-        
-        if not token:
-            print(f"❌ No hay token")
-            return jsonify({'error': 'Token no encontrado'}), 401
-        
-        usuario_id = verificar_token(token)
-        print(f"👤 Usuario ID del token: {usuario_id}")
-        
-        if not usuario_id:
-            print(f"❌ Token inválido o expirado")
-            return jsonify({'error': 'Token inválido o expirado'}), 401
-        
-        usuario = Usuario.query.get(usuario_id)
-        
-        if not usuario:
-            print(f"❌ Usuario no encontrado")
-            return jsonify({'error': 'Usuario no encontrado'}), 401
-        
-        print(f"✅ Token verificado para usuario: {usuario.email}")
-        request.usuario = usuario
-        return f(*args, **kwargs)
+def get_token_from_request():
+    """Extrae el token del header Authorization"""
+    if 'Authorization' not in request.headers:
+        return None
     
-    return decorated
+    try:
+        auth_header = request.headers['Authorization']
+        token = auth_header.split(" ")[1]
+        return token
+    except IndexError:
+        return None
 
-def admin_requerido(f):
-    @wraps(f)
-    @token_requerido
-    def decorated(*args, **kwargs):
-        if request.usuario.rol != 'admin':
-            return jsonify({'error': 'Acceso denegado. Se requiere rol de administrador'}), 403
-        return f(*args, **kwargs)
+def verify_token_and_get_user():
+    """Verifica el token y retorna el usuario o None"""
+    token = get_token_from_request()
     
-    return decorated
+    if not token:
+        return None
+    
+    usuario_id = verificar_token(token)
+    if not usuario_id:
+        return None
+    
+    usuario = Usuario.query.get(usuario_id)
+    return usuario
 
 # ==================== RUTAS DE AUTENTICACIÓN ====================
 
@@ -292,15 +263,27 @@ def login():
     }), 200
 
 @app.route('/api/auth/me', methods=['GET', 'OPTIONS'])
-@token_requerido
 def get_current_usuario():
-    return jsonify(request.usuario.to_dict()), 200
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
+    
+    return jsonify(usuario.to_dict()), 200
 
 @app.route('/api/auth/logout', methods=['POST', 'OPTIONS'])
-@token_requerido
 def logout():
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
+    
     return jsonify({'mensaje': 'Logout exitoso'}), 200
 
 # ==================== RUTAS BARBEROS ====================
@@ -310,26 +293,11 @@ def get_barberos():
     if request.method == 'OPTIONS':
         return '', 200
     
-    # Verificar token manualmente
-    token = None
-    if 'Authorization' in request.headers:
-        try:
-            token = request.headers['Authorization'].split(" ")[1]
-        except IndexError:
-            return jsonify({'error': 'Formato de token inválido'}), 401
+    usuario = verify_token_and_get_user()
     
-    if not token:
-        return jsonify({'error': 'Token no encontrado'}), 401
-    
-    usuario_id = verificar_token(token)
-    if not usuario_id:
-        return jsonify({'error': 'Token inválido o expirado'}), 401
-    
-    usuario = Usuario.query.get(usuario_id)
     if not usuario:
-        return jsonify({'error': 'Usuario no encontrado'}), 401
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
     
-    # Verificar que sea admin
     if usuario.rol != 'admin':
         return jsonify({'error': 'Acceso denegado. Se requiere rol de administrador'}), 403
     
@@ -340,12 +308,18 @@ def get_barberos():
         print(f"❌ Error en get_barberos: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/barberos', methods=['POST', 'OPTIONS'])
-@admin_requerido
 def crear_barbero():
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
+    
+    if usuario.rol != 'admin':
+        return jsonify({'error': 'Acceso denegado. Se requiere rol de administrador'}), 403
     
     data = request.get_json()
     
@@ -365,10 +339,17 @@ def crear_barbero():
     return jsonify(nuevo_barbero.to_dict()), 201
 
 @app.route('/api/barberos/<int:id>', methods=['PUT', 'OPTIONS'])
-@admin_requerido
 def actualizar_barbero(id):
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
+    
+    if usuario.rol != 'admin':
+        return jsonify({'error': 'Acceso denegado. Se requiere rol de administrador'}), 403
     
     barbero = Barbero.query.get(id)
     
@@ -393,10 +374,17 @@ def actualizar_barbero(id):
     return jsonify(barbero.to_dict()), 200
 
 @app.route('/api/barberos/<int:id>', methods=['DELETE', 'OPTIONS'])
-@admin_requerido
 def eliminar_barbero(id):
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
+    
+    if usuario.rol != 'admin':
+        return jsonify({'error': 'Acceso denegado. Se requiere rol de administrador'}), 403
     
     barbero = Barbero.query.get(id)
     
@@ -411,19 +399,31 @@ def eliminar_barbero(id):
 # ==================== RUTAS CLIENTES ====================
 
 @app.route('/api/clientes', methods=['GET', 'OPTIONS'])
-@token_requerido
 def get_clientes():
     if request.method == 'OPTIONS':
         return '', 200
     
-    clientes = Cliente.query.all()
-    return jsonify([cliente.to_dict() for cliente in clientes]), 200
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
+    
+    try:
+        clientes = Cliente.query.all()
+        return jsonify([cliente.to_dict() for cliente in clientes]), 200
+    except Exception as e:
+        print(f"❌ Error en get_clientes: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/clientes', methods=['POST', 'OPTIONS'])
-@token_requerido
 def crear_cliente():
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
     
     data = request.get_json()
     
@@ -442,10 +442,14 @@ def crear_cliente():
     return jsonify(nuevo_cliente.to_dict()), 201
 
 @app.route('/api/clientes/<int:id>', methods=['PUT', 'OPTIONS'])
-@token_requerido
 def actualizar_cliente(id):
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
     
     cliente = Cliente.query.get(id)
     
@@ -466,10 +470,14 @@ def actualizar_cliente(id):
     return jsonify(cliente.to_dict()), 200
 
 @app.route('/api/clientes/<int:id>', methods=['DELETE', 'OPTIONS'])
-@token_requerido
 def eliminar_cliente(id):
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
     
     cliente = Cliente.query.get(id)
     
@@ -484,19 +492,37 @@ def eliminar_cliente(id):
 # ==================== RUTAS SERVICIOS ====================
 
 @app.route('/api/servicios', methods=['GET', 'OPTIONS'])
-@admin_requerido
 def get_servicios():
     if request.method == 'OPTIONS':
         return '', 200
     
-    servicios = Servicio.query.all()
-    return jsonify([servicio.to_dict() for servicio in servicios]), 200
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
+    
+    if usuario.rol != 'admin':
+        return jsonify({'error': 'Acceso denegado. Se requiere rol de administrador'}), 403
+    
+    try:
+        servicios = Servicio.query.all()
+        return jsonify([servicio.to_dict() for servicio in servicios]), 200
+    except Exception as e:
+        print(f"❌ Error en get_servicios: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/servicios', methods=['POST', 'OPTIONS'])
-@admin_requerido
 def crear_servicio():
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
+    
+    if usuario.rol != 'admin':
+        return jsonify({'error': 'Acceso denegado. Se requiere rol de administrador'}), 403
     
     data = request.get_json()
     
@@ -515,10 +541,17 @@ def crear_servicio():
     return jsonify(nuevo_servicio.to_dict()), 201
 
 @app.route('/api/servicios/<int:id>', methods=['PUT', 'OPTIONS'])
-@admin_requerido
 def actualizar_servicio(id):
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
+    
+    if usuario.rol != 'admin':
+        return jsonify({'error': 'Acceso denegado. Se requiere rol de administrador'}), 403
     
     servicio = Servicio.query.get(id)
     
@@ -539,10 +572,17 @@ def actualizar_servicio(id):
     return jsonify(servicio.to_dict()), 200
 
 @app.route('/api/servicios/<int:id>', methods=['DELETE', 'OPTIONS'])
-@admin_requerido
 def eliminar_servicio(id):
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
+    
+    if usuario.rol != 'admin':
+        return jsonify({'error': 'Acceso denegado. Se requiere rol de administrador'}), 403
     
     servicio = Servicio.query.get(id)
     
@@ -557,19 +597,31 @@ def eliminar_servicio(id):
 # ==================== RUTAS CITAS ====================
 
 @app.route('/api/citas', methods=['GET', 'OPTIONS'])
-@token_requerido
 def get_citas():
     if request.method == 'OPTIONS':
         return '', 200
     
-    citas = Cita.query.order_by(Cita.fecha.desc()).all()
-    return jsonify([cita.to_dict() for cita in citas]), 200
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
+    
+    try:
+        citas = Cita.query.order_by(Cita.fecha.desc()).all()
+        return jsonify([cita.to_dict() for cita in citas]), 200
+    except Exception as e:
+        print(f"❌ Error en get_citas: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/citas', methods=['POST', 'OPTIONS'])
-@token_requerido
 def crear_cita():
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
     
     data = request.get_json()
     
@@ -605,10 +657,14 @@ def crear_cita():
     return jsonify(nueva_cita.to_dict()), 201
 
 @app.route('/api/citas/<int:id>', methods=['PUT', 'OPTIONS'])
-@token_requerido
 def actualizar_cita(id):
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
     
     cita = Cita.query.get(id)
     
@@ -653,10 +709,14 @@ def actualizar_cita(id):
     return jsonify(cita.to_dict()), 200
 
 @app.route('/api/citas/<int:id>', methods=['DELETE', 'OPTIONS'])
-@token_requerido
 def eliminar_cita(id):
     if request.method == 'OPTIONS':
         return '', 200
+    
+    usuario = verify_token_and_get_user()
+    
+    if not usuario:
+        return jsonify({'error': 'Token inválido o no encontrado'}), 401
     
     cita = Cita.query.get(id)
     
