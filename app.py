@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, Response
+from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.pool import NullPool
 from datetime import datetime, timedelta
@@ -16,28 +17,11 @@ app = Flask(__name__)
 
 
 # ==================== CONFIGURACIÓN CORS - CRÍTICO ====================
-@app.before_request
-def handle_preflight():
-    """Maneja preflight OPTIONS requests ANTES que todo"""
-    if request.method == "OPTIONS":
-        response = Response()
-        response.headers.add("Access-Control-Allow-Origin", request.headers.get("Origin", "*"))
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
-        response.headers.add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        response.headers.add("Access-Control-Max-Age", "3600")
-        response.headers.add("Access-Control-Allow-Credentials", "true")
-        return response, 200
-
-
-@app.after_request
-def after_request(response):
-    """Añade headers CORS a TODAS las respuestas"""
-    response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Max-Age"] = "3600"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    return response
+CORS(app, 
+     origins=["https://barberia-jordan-frontend.vercel.app", "http://localhost:3000", "http://localhost:5173"],
+     supports_credentials=True,
+     allow_headers=["Content-Type", "Authorization"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 
 # ==================== CONFIGURACIÓN DE BD ====================
