@@ -13,11 +13,36 @@ load_dotenv()
 
 
 app = Flask(__name__)
-app.config['ENV'] = 'production' if os.getenv('DATABASE_URL') else 'development'
+
+
+# ==================== CONFIGURACIÓN CORS - CRÍTICO ====================
+@app.before_request
+def handle_preflight():
+    """Maneja preflight OPTIONS requests ANTES que todo"""
+    if request.method == "OPTIONS":
+        response = Response()
+        response.headers.add("Access-Control-Allow-Origin", request.headers.get("Origin", "*"))
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        response.headers.add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        response.headers.add("Access-Control-Max-Age", "3600")
+        response.headers.add("Access-Control-Allow-Credentials", "true")
+        return response, 200
+
+
+@app.after_request
+def after_request(response):
+    """Añade headers CORS a TODAS las respuestas"""
+    response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Max-Age"] = "3600"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
 
 
 # ==================== CONFIGURACIÓN DE BD ====================
 
+app.config['ENV'] = 'production' if os.getenv('DATABASE_URL') else 'development'
 
 DATABASE_URL = os.getenv('DATABASE_URL')
 
@@ -40,30 +65,6 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 
 db = SQLAlchemy(app)
-
-
-# ==================== CONFIGURACIÓN CORS SIMPLE Y FUNCIONAL ====================
-
-@app.before_request
-def handle_preflight():
-    """Maneja preflight OPTIONS requests"""
-    if request.method == "OPTIONS":
-        response = Response()
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
-        response.headers.add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        response.headers.add("Access-Control-Max-Age", "3600")
-        return response, 200
-
-
-@app.after_request
-def after_request(response):
-    """Añade headers CORS a TODAS las respuestas"""
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Max-Age"] = "3600"
-    return response
 
 
 @app.errorhandler(Exception)
