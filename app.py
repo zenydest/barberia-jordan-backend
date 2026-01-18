@@ -175,14 +175,16 @@ class Cita(db.Model):
             'id': self.id,
             'cliente': self.cliente.nombre if self.cliente else 'Cliente no registrado',
             'cliente_id': self.cliente_id,
-            'barbero': self.barbero.nombre if self.barbero else None,  # ✅ Permite None
+            'barbero': self.barbero.nombre if self.barbero else None,
             'barbero_id': self.barbero_id,
-            'servicio': self.servicio.nombre if self.servicio else None,  # ✅ Permite None
+            'servicio': self.servicio.nombre if self.servicio else None,
             'servicio_id': self.servicio_id,
-                'precio': self.precio,
-        'fecha': self.fecha.strftime('%Y-%m-%d %H:%M:%S'),
+            'precio': self.precio,
+            'fecha': self.fecha.strftime('%Y-%m-%d %H:%M:%S'),
             'notas': self.notas
         }
+
+
 # ==================== FUNCIONES DE AUTENTICACIÓN ====================
 
 
@@ -668,11 +670,9 @@ def crear_cita():
     
     data = request.get_json()
     
-    # ✅ SOLO precio es obligatorio
     if not data or data.get('precio') is None:
         return jsonify({'error': 'Precio es requerido'}), 400
     
-    # ✅ Validar barbero si se proporciona (pero es OPCIONAL)
     barbero_id = None
     if data.get('barbero_id'):
         barbero = Barbero.query.get(data['barbero_id'])
@@ -680,7 +680,6 @@ def crear_cita():
             return jsonify({'error': 'Barbero no encontrado'}), 404
         barbero_id = data['barbero_id']
     
-    # ✅ Validar servicio si se proporciona (pero es OPCIONAL)
     servicio_id = None
     if data.get('servicio_id'):
         servicio = Servicio.query.get(data['servicio_id'])
@@ -688,7 +687,6 @@ def crear_cita():
             return jsonify({'error': 'Servicio no encontrado'}), 404
         servicio_id = data['servicio_id']
     
-    # ✅ Validar cliente si se proporciona (era OPCIONAL, sigue siéndolo)
     cliente_id = None
     if data.get('cliente_id'):
         cliente = Cliente.query.get(data['cliente_id'])
@@ -709,6 +707,7 @@ def crear_cita():
     db.session.commit()
     
     return jsonify(nueva_cita.to_dict()), 201
+
 
 
 @app.route('/api/citas/<int:id>', methods=['PUT', 'OPTIONS'])
@@ -737,7 +736,6 @@ def actualizar_cita(id):
         else:
             cita.cliente_id = None  # ✅ Permite vacío
     
-    # ✅ AHORA PERMITE BARBERO OPCIONAL O NULL
     if 'barbero_id' in data:
         if data['barbero_id']:
             barbero = Barbero.query.get(data['barbero_id'])
@@ -745,9 +743,8 @@ def actualizar_cita(id):
                 return jsonify({'error': 'Barbero no encontrado'}), 404
             cita.barbero_id = data['barbero_id']
         else:
-            cita.barbero_id = None  # ✅ Permite vacío
+            cita.barbero_id = None
     
-    # ✅ AHORA PERMITE SERVICIO OPCIONAL O NULL
     if 'servicio_id' in data:
         if data['servicio_id']:
             servicio = Servicio.query.get(data['servicio_id'])
@@ -755,7 +752,8 @@ def actualizar_cita(id):
                 return jsonify({'error': 'Servicio no encontrado'}), 404
             cita.servicio_id = data['servicio_id']
         else:
-            cita.servicio_id = None  # ✅ Permite vacío
+            cita.servicio_id = None
+
     
     if 'precio' in data:
         cita.precio = data['precio']
