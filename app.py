@@ -3,6 +3,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.pool import NullPool
 from datetime import datetime, timedelta
+from functools import wraps
 import jwt
 import os
 from pathlib import Path
@@ -11,11 +12,14 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 
 
+
 load_dotenv()
 
 
 
+
 app = Flask(__name__)
+
 
 
 
@@ -28,13 +32,17 @@ CORS(app,
 
 
 
+
 # ==================== CONFIGURACIÓN DE BD ====================
+
 
 
 app.config['ENV'] = 'production' if os.getenv('DATABASE_URL') else 'development'
 
 
+
 DATABASE_URL = os.getenv('DATABASE_URL')
+
 
 
 
@@ -48,6 +56,7 @@ else:
 
 
 
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'tu-clave-secreta-cambiar-en-produccion')
 app.config['JWT_EXPIRATION_HOURS'] = 24
@@ -57,7 +66,9 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 
 
+
 db = SQLAlchemy(app)
+
 
 
 
@@ -72,7 +83,9 @@ def handle_db_error(error):
 
 
 
+
 # ==================== MODELOS ====================
+
 
 
 
@@ -88,13 +101,16 @@ class Usuario(db.Model):
 
 
 
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
 
 
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
 
 
 
@@ -110,6 +126,7 @@ class Usuario(db.Model):
 
 
 
+
 class Barbero(db.Model):
     __tablename__ = 'barberos'
     id = db.Column(db.Integer, primary_key=True)
@@ -119,6 +136,7 @@ class Barbero(db.Model):
     comision = db.Column(db.Float, default=20.0)
     estado = db.Column(db.String(20), default='activo')
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 
 
@@ -135,6 +153,7 @@ class Barbero(db.Model):
 
 
 
+
 class Cliente(db.Model):
     __tablename__ = 'clientes'
     id = db.Column(db.Integer, primary_key=True)
@@ -142,6 +161,7 @@ class Cliente(db.Model):
     email = db.Column(db.String(100), unique=True, nullable=True)
     telefono = db.Column(db.String(20), nullable=True)
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 
 
@@ -156,6 +176,7 @@ class Cliente(db.Model):
 
 
 
+
 class Servicio(db.Model):
     __tablename__ = 'servicios'
     id = db.Column(db.Integer, primary_key=True)
@@ -163,6 +184,7 @@ class Servicio(db.Model):
     precio = db.Column(db.Float, nullable=False)
     descripcion = db.Column(db.String(255))
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 
 
@@ -174,6 +196,7 @@ class Servicio(db.Model):
             'descripcion': self.descripcion,
             'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d')
         }
+
 
 
 
@@ -193,6 +216,7 @@ class Cita(db.Model):
 
 
 
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -209,7 +233,9 @@ class Cita(db.Model):
 
 
 
+
 # ==================== FUNCIONES DE AUTENTICACIÓN ====================
+
 
 
 
@@ -222,12 +248,14 @@ def generar_token(usuario_id):
 
 
 
+
 def verificar_token(token):
     try:
         payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
         return payload['usuario_id']
     except:
         return None
+
 
 
 
@@ -242,6 +270,7 @@ def get_token_from_request():
         return token
     except IndexError:
         return None
+
 
 
 
@@ -261,7 +290,35 @@ def verify_token_and_get_user():
 
 
 
+
+# ✅ DECORADOR ADMIN_REQUERIDO - DEFINIDO CORRECTAMENTE A NIVEL DE MÓDULO
+def admin_requerido(f):
+    """Decorador que verifica token Y rol admin"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        # Permitir OPTIONS sin autenticación
+        if request.method == 'OPTIONS':
+            return '', 200
+        
+        usuario = verify_token_and_get_user()
+        
+        if not usuario:
+            return jsonify({'error': 'Token inválido o no encontrado'}), 401
+        
+        if usuario.rol != 'admin':
+            return jsonify({'error': 'Acceso denegado. Se requiere rol de administrador'}), 403
+        
+        # Guardar usuario en request para usarlo en la función
+        request.usuario = usuario
+        return f(*args, **kwargs)
+    
+    return decorated
+
+
+
+
 # ==================== RUTAS DE AUTENTICACIÓN ====================
+
 
 
 
@@ -296,6 +353,7 @@ def registro():
 
 
 
+
 @app.route('/api/auth/login', methods=['POST', 'OPTIONS'])
 def login():
     if request.method == 'OPTIONS':
@@ -320,6 +378,7 @@ def login():
 
 
 
+
 @app.route('/api/auth/me', methods=['GET', 'OPTIONS'])
 def get_current_usuario():
     if request.method == 'OPTIONS':
@@ -331,6 +390,7 @@ def get_current_usuario():
         return jsonify({'error': 'Token inválido o no encontrado'}), 401
     
     return jsonify(usuario.to_dict()), 200
+
 
 
 
@@ -348,7 +408,9 @@ def logout():
 
 
 
+
 # ==================== RUTAS BARBEROS ====================
+
 
 
 
@@ -371,6 +433,7 @@ def get_barberos():
     except Exception as e:
         print(f"❌ Error en get_barberos: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
 
 
 
@@ -403,6 +466,7 @@ def crear_barbero():
     db.session.commit()
     
     return jsonify(nuevo_barbero.to_dict()), 201
+
 
 
 
@@ -443,6 +507,7 @@ def actualizar_barbero(id):
 
 
 
+
 @app.route('/api/barberos/<int:id>', methods=['DELETE', 'OPTIONS'])
 def eliminar_barbero(id):
     if request.method == 'OPTIONS':
@@ -476,7 +541,9 @@ def eliminar_barbero(id):
 
 
 
+
 # ==================== RUTAS CLIENTES ====================
+
 
 
 
@@ -496,6 +563,7 @@ def get_clientes():
     except Exception as e:
         print(f"❌ Error en get_clientes: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
 
 
 
@@ -524,6 +592,7 @@ def crear_cliente():
     db.session.commit()
     
     return jsonify(nuevo_cliente.to_dict()), 201
+
 
 
 
@@ -557,6 +626,7 @@ def actualizar_cliente(id):
 
 
 
+
 @app.route('/api/clientes/<int:id>', methods=['DELETE', 'OPTIONS'])
 def eliminar_cliente(id):
     if request.method == 'OPTIONS':
@@ -579,7 +649,9 @@ def eliminar_cliente(id):
 
 
 
+
 # ==================== RUTAS SERVICIOS ====================
+
 
 
 
@@ -602,6 +674,7 @@ def get_servicios():
     except Exception as e:
         print(f"❌ Error en get_servicios: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
 
 
 
@@ -633,6 +706,7 @@ def crear_servicio():
     db.session.commit()
     
     return jsonify(nuevo_servicio.to_dict()), 201
+
 
 
 
@@ -669,6 +743,7 @@ def actualizar_servicio(id):
 
 
 
+
 @app.route('/api/servicios/<int:id>', methods=['DELETE', 'OPTIONS'])
 def eliminar_servicio(id):
     if request.method == 'OPTIONS':
@@ -702,7 +777,9 @@ def eliminar_servicio(id):
 
 
 
+
 # ==================== RUTAS CITAS ====================
+
 
 
 
@@ -722,6 +799,7 @@ def get_citas():
     except Exception as e:
         print(f"❌ Error en get_citas: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
 
 
 
@@ -821,7 +899,6 @@ def actualizar_cita(id):
             cita.servicio_id = data['servicio_id']
         else:
             cita.servicio_id = None
-
     
     if 'precio' in data:
         cita.precio = data['precio']
@@ -838,6 +915,7 @@ def actualizar_cita(id):
     db.session.commit()
     
     return jsonify(cita.to_dict()), 200
+
 
 
 
@@ -861,7 +939,9 @@ def eliminar_cita(id):
     
     return jsonify({'mensaje': 'Cita eliminada correctamente'}), 200
 
+
 # ==================== RUTAS USUARIOS ====================
+
 
 @app.route('/api/usuarios', methods=['GET', 'OPTIONS'])
 @admin_requerido
@@ -876,6 +956,7 @@ def get_usuarios():
     except Exception as e:
         print(f"❌ Error en get_usuarios: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
 
 
 @app.route('/api/usuarios', methods=['POST', 'OPTIONS'])
@@ -909,6 +990,7 @@ def crear_usuario():
         'mensaje': 'Usuario creado exitosamente',
         'usuario': nuevo_usuario.to_dict()
     }), 201
+
 
 
 @app.route('/api/usuarios/<int:id>', methods=['PUT', 'OPTIONS'])
@@ -946,6 +1028,7 @@ def actualizar_usuario(id):
     }), 200
 
 
+
 @app.route('/api/usuarios/<int:id>', methods=['DELETE', 'OPTIONS'])
 @admin_requerido
 def eliminar_usuario(id):
@@ -968,7 +1051,9 @@ def eliminar_usuario(id):
     return jsonify({'mensaje': 'Usuario eliminado correctamente'}), 200
 
 
+
 # ==================== RUTAS GENERALES ====================
+
 
 
 
@@ -977,6 +1062,7 @@ def health():
     if request.method == 'OPTIONS':
         return '', 200
     return jsonify({'status': 'API activa'}), 200
+
 
 
 
@@ -998,6 +1084,7 @@ def health_pool():
             'status': 'error',
             'error': str(e)
         }), 500
+
 
 
 
@@ -1048,7 +1135,9 @@ def init_data():
 
 
 
+
 # ==================== INICIALIZAR BD ====================
+
 
 
 
@@ -1104,6 +1193,7 @@ with app.app_context():
         print("✅ Servicios creados")
     else:
         print(f"ℹ️ {Servicio.query.count()} servicios ya existen")
+
 
 
 
