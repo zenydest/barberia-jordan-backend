@@ -861,6 +861,111 @@ def eliminar_cita(id):
     
     return jsonify({'mensaje': 'Cita eliminada correctamente'}), 200
 
+# ==================== RUTAS USUARIOS ====================
+
+@app.route('/api/usuarios', methods=['GET', 'OPTIONS'])
+@admin_requerido
+def get_usuarios():
+    """Obtiene todos los usuarios - Solo para admin"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        usuarios = Usuario.query.all()
+        return jsonify([usuario.to_dict() for usuario in usuarios]), 200
+    except Exception as e:
+        print(f"❌ Error en get_usuarios: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/usuarios', methods=['POST', 'OPTIONS'])
+@admin_requerido
+def crear_usuario():
+    """Crea un nuevo usuario - Solo para admin"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    data = request.get_json()
+    
+    # Validaciones
+    if not data or not all(k in data for k in ['email', 'password', 'nombre']):
+        return jsonify({'error': 'Email, password y nombre son requeridos'}), 400
+    
+    if Usuario.query.filter_by(email=data['email']).first():
+        return jsonify({'error': 'El email ya está registrado'}), 409
+    
+    nuevo_usuario = Usuario(
+        email=data['email'],
+        nombre=data['nombre'],
+        rol=data.get('rol', 'barbero'),
+        estado=data.get('estado', 'activo')
+    )
+    nuevo_usuario.set_password(data['password'])
+    
+    db.session.add(nuevo_usuario)
+    db.session.commit()
+    
+    return jsonify({
+        'mensaje': 'Usuario creado exitosamente',
+        'usuario': nuevo_usuario.to_dict()
+    }), 201
+
+
+@app.route('/api/usuarios/<int:id>', methods=['PUT', 'OPTIONS'])
+@admin_requerido
+def actualizar_usuario(id):
+    """Actualiza un usuario - Solo para admin"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    usuario = Usuario.query.get(id)
+    
+    if not usuario:
+        return jsonify({'error': 'Usuario no encontrado'}), 404
+    
+    data = request.get_json()
+    
+    if 'nombre' in data:
+        usuario.nombre = data['nombre']
+    if 'email' in data:
+        if data['email'] != usuario.email and Usuario.query.filter_by(email=data['email']).first():
+            return jsonify({'error': 'El email ya está registrado'}), 409
+        usuario.email = data['email']
+    if 'rol' in data:
+        usuario.rol = data['rol']
+    if 'estado' in data:
+        usuario.estado = data['estado']
+    if 'password' in data and data['password']:
+        usuario.set_password(data['password'])
+    
+    db.session.commit()
+    
+    return jsonify({
+        'mensaje': 'Usuario actualizado',
+        'usuario': usuario.to_dict()
+    }), 200
+
+
+@app.route('/api/usuarios/<int:id>', methods=['DELETE', 'OPTIONS'])
+@admin_requerido
+def eliminar_usuario(id):
+    """Elimina un usuario - Solo para admin"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    usuario = Usuario.query.get(id)
+    
+    if not usuario:
+        return jsonify({'error': 'Usuario no encontrado'}), 404
+    
+    # Proteger al admin principal
+    if usuario.email == 'Rodritapia92@gmail.com':
+        return jsonify({'error': 'No se puede eliminar el administrador principal'}), 403
+    
+    db.session.delete(usuario)
+    db.session.commit()
+    
+    return jsonify({'mensaje': 'Usuario eliminado correctamente'}), 200
 
 
 # ==================== RUTAS GENERALES ====================
