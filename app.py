@@ -10,14 +10,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 
-
 load_dotenv()
-
 
 app = Flask(__name__)
 
-
-# ==================== CONFIGURACIÓN CORS ====================
+# ==================== CONFIGURACIÓN CORS - FIXED ====================
+# Permitir todas las origins en desarrollo, específicas en producción
 allowed_origins = [
     "https://barberia-jordan-frontend.vercel.app",
     "http://localhost:3000",
@@ -25,7 +23,6 @@ allowed_origins = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173"
 ]
-
 
 CORS(app,
      origins=allowed_origins,
@@ -35,7 +32,7 @@ CORS(app,
      expose_headers=["Content-Type"],
      max_age=3600)
 
-
+# Manejo manual de preflight si es necesario
 @app.before_request
 def handle_preflight():
     if request.method == "OPTIONS":
@@ -46,13 +43,10 @@ def handle_preflight():
         response.headers.add("Access-Control-Allow-Credentials", "true")
         return response, 200
 
-
 # ==================== CONFIGURACIÓN DE BD ====================
 app.config['ENV'] = 'production' if os.getenv('DATABASE_URL') else 'development'
 
-
 DATABASE_URL = os.getenv('DATABASE_URL')
-
 
 if DATABASE_URL:
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://', 1)
@@ -62,7 +56,6 @@ else:
     DATABASE_PATH.parent.mkdir(exist_ok=True)
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DATABASE_PATH}'
 
-
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'tu-clave-secreta-cambiar-en-produccion')
 app.config['JWT_EXPIRATION_HOURS'] = 24
@@ -70,9 +63,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'poolclass': NullPool,
 }
 
-
 db = SQLAlchemy(app)
-
 
 @app.errorhandler(Exception)
 def handle_db_error(error):
@@ -82,7 +73,6 @@ def handle_db_error(error):
         return jsonify({'error': 'Conexión temporal a BD - reintentar'}), 503
     print(f"❌ Error: {error}")
     return jsonify({'error': 'Error interno'}), 500
-
 
 # ==================== MODELOS ====================
 class Usuario(db.Model):
@@ -95,14 +85,11 @@ class Usuario(db.Model):
     estado = db.Column(db.String(20), default='activo')
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
 
-
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
-
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
-
 
     def to_dict(self):
         return {
@@ -114,7 +101,6 @@ class Usuario(db.Model):
             'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d')
         }
 
-
 class Barbero(db.Model):
     __tablename__ = 'barberos'
     id = db.Column(db.Integer, primary_key=True)
@@ -124,7 +110,6 @@ class Barbero(db.Model):
     comision = db.Column(db.Float, default=20.0)
     estado = db.Column(db.String(20), default='activo')
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
-
 
     def to_dict(self):
         return {
@@ -137,15 +122,13 @@ class Barbero(db.Model):
             'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d')
         }
 
-
 class Cliente(db.Model):
     __tablename__ = 'clientes'
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(100), nullable=True)
+    email = db.Column(db.String(100), unique=True, nullable=True)
     telefono = db.Column(db.String(20), nullable=True)
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
-
 
     def to_dict(self):
         return {
@@ -156,7 +139,6 @@ class Cliente(db.Model):
             'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d')
         }
 
-
 class Servicio(db.Model):
     __tablename__ = 'servicios'
     id = db.Column(db.Integer, primary_key=True)
@@ -164,7 +146,6 @@ class Servicio(db.Model):
     precio = db.Column(db.Float, nullable=False)
     descripcion = db.Column(db.String(255))
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
-
 
     def to_dict(self):
         return {
@@ -174,7 +155,6 @@ class Servicio(db.Model):
             'descripcion': self.descripcion,
             'fecha_registro': self.fecha_registro.strftime('%Y-%m-%d')
         }
-
 
 class Cita(db.Model):
     __tablename__ = 'citas'
@@ -190,7 +170,6 @@ class Cita(db.Model):
     barbero = db.relationship('Barbero', backref='citas')
     servicio = db.relationship('Servicio', backref='citas')
 
-
     def to_dict(self):
         return {
             'id': self.id,
@@ -205,7 +184,6 @@ class Cita(db.Model):
             'notas': self.notas
         }
 
-
 # ==================== FUNCIONES DE AUTENTICACIÓN ====================
 def generar_token(usuario_id):
     payload = {
@@ -214,14 +192,12 @@ def generar_token(usuario_id):
     }
     return jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
 
-
 def verificar_token(token):
     try:
         payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
         return payload['usuario_id']
     except:
         return None
-
 
 def get_token_from_request():
     """Extrae el token del header Authorization"""
@@ -234,7 +210,6 @@ def get_token_from_request():
         return token
     except IndexError:
         return None
-
 
 def verify_token_and_get_user():
     """Verifica el token y retorna el usuario o None"""
@@ -249,7 +224,6 @@ def verify_token_and_get_user():
     
     usuario = Usuario.query.get(usuario_id)
     return usuario
-
 
 def admin_requerido(f):
     """Decorador que verifica token Y rol admin"""
@@ -271,7 +245,6 @@ def admin_requerido(f):
     
     return decorated
 
-
 # ==================== RUTAS DE AUTENTICACIÓN ====================
 @app.route('/api/auth/registro', methods=['POST', 'OPTIONS'])
 def registro():
@@ -283,16 +256,12 @@ def registro():
     if not data or not all(k in data for k in ['email', 'password', 'nombre']):
         return jsonify({'error': 'Email, password y nombre son requeridos'}), 400
     
-    # Validar que los campos no estén vacíos
-    if not data['email'].strip() or not data['password'].strip() or not data['nombre'].strip():
-        return jsonify({'error': 'Los campos no pueden estar vacíos'}), 400
-    
-    if Usuario.query.filter_by(email=data['email'].strip().lower()).first():
+    if Usuario.query.filter_by(email=data['email']).first():
         return jsonify({'error': 'El email ya está registrado'}), 409
     
     nuevo_usuario = Usuario(
-        email=data['email'].strip().lower(),
-        nombre=data['nombre'].strip(),
+        email=data['email'],
+        nombre=data['nombre'],
         rol=data.get('rol', 'barbero')
     )
     nuevo_usuario.set_password(data['password'])
@@ -306,7 +275,6 @@ def registro():
         'usuario': nuevo_usuario.to_dict()
     }), 201
 
-
 @app.route('/api/auth/login', methods=['POST', 'OPTIONS'])
 def login():
     if request.method == 'OPTIONS':
@@ -317,7 +285,7 @@ def login():
     if not data or not all(k in data for k in ['email', 'password']):
         return jsonify({'error': 'Email y password son requeridos'}), 400
     
-    usuario = Usuario.query.filter_by(email=data['email'].strip().lower()).first()
+    usuario = Usuario.query.filter_by(email=data['email']).first()
     
     if not usuario or not usuario.check_password(data['password']):
         return jsonify({'error': 'Email o contraseña incorrectos'}), 401
@@ -328,7 +296,6 @@ def login():
         'token': token,
         'usuario': usuario.to_dict()
     }), 200
-
 
 @app.route('/api/auth/me', methods=['GET', 'OPTIONS'])
 def get_current_usuario():
@@ -342,7 +309,6 @@ def get_current_usuario():
     
     return jsonify(usuario.to_dict()), 200
 
-
 @app.route('/api/auth/logout', methods=['POST', 'OPTIONS'])
 def logout():
     if request.method == 'OPTIONS':
@@ -354,7 +320,6 @@ def logout():
         return jsonify({'error': 'Token inválido o no encontrado'}), 401
     
     return jsonify({'mensaje': 'Logout exitoso'}), 200
-
 
 # ==================== RUTAS BARBEROS ====================
 @app.route('/api/barberos', methods=['GET', 'OPTIONS'])
@@ -377,7 +342,6 @@ def get_barberos():
         print(f"❌ Error en get_barberos: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/barberos', methods=['POST', 'OPTIONS'])
 def crear_barbero():
     if request.method == 'OPTIONS':
@@ -396,17 +360,9 @@ def crear_barbero():
     if not data or not data.get('nombre', '').strip():
         return jsonify({'error': 'El nombre es requerido'}), 400
     
-    # Validar email único si se proporciona
-    if data.get('email'):
-        email_limpio = data['email'].strip().lower()
-        if email_limpio and Barbero.query.filter_by(email=email_limpio).first():
-            return jsonify({'error': 'El email ya está registrado'}), 409
-    else:
-        email_limpio = None
-    
     nuevo_barbero = Barbero(
         nombre=data['nombre'].strip(),
-        email=email_limpio,
+        email=data.get('email', '').strip() if data.get('email') else None,
         telefono=data.get('telefono', '').strip() if data.get('telefono') else None,
         comision=float(data.get('comision', 20.0))
     )
@@ -415,7 +371,6 @@ def crear_barbero():
     db.session.commit()
     
     return jsonify(nuevo_barbero.to_dict()), 201
-
 
 @app.route('/api/barberos/<int:id>', methods=['PUT', 'OPTIONS'])
 def actualizar_barbero(id):
@@ -438,31 +393,19 @@ def actualizar_barbero(id):
     data = request.get_json()
     
     if 'nombre' in data:
-        if not data['nombre'].strip():
-            return jsonify({'error': 'El nombre no puede estar vacío'}), 400
-        barbero.nombre = data['nombre'].strip()
-    
+        barbero.nombre = data['nombre']
     if 'email' in data:
-        email_nuevo = data['email'].strip().lower() if data.get('email') else None
-        # Validar email único
-        if email_nuevo and email_nuevo != barbero.email:
-            if Barbero.query.filter_by(email=email_nuevo).first():
-                return jsonify({'error': 'El email ya está registrado'}), 409
-        barbero.email = email_nuevo if email_nuevo else None
-    
+        barbero.email = data['email']
     if 'telefono' in data:
-        barbero.telefono = data['telefono'].strip() if data.get('telefono') else None
-    
+        barbero.telefono = data['telefono']
     if 'comision' in data:
         barbero.comision = float(data['comision'])
-    
     if 'estado' in data:
-        barbero.estado = data['estado'].strip()
+        barbero.estado = data['estado']
     
     db.session.commit()
     
     return jsonify(barbero.to_dict()), 200
-
 
 @app.route('/api/barberos/<int:id>', methods=['DELETE', 'OPTIONS'])
 def eliminar_barbero(id):
@@ -494,7 +437,6 @@ def eliminar_barbero(id):
         print(f"❌ Error al eliminar barbero: {str(e)}")
         return jsonify({'error': f'Error al eliminar: {str(e)}'}), 500
 
-
 # ==================== RUTAS CLIENTES ====================
 @app.route('/api/clientes', methods=['GET', 'OPTIONS'])
 def get_clientes():
@@ -513,7 +455,6 @@ def get_clientes():
         print(f"❌ Error en get_clientes: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/clientes', methods=['POST', 'OPTIONS'])
 def crear_cliente():
     if request.method == 'OPTIONS':
@@ -531,7 +472,7 @@ def crear_cliente():
     
     nuevo_cliente = Cliente(
         nombre=data['nombre'].strip(),
-        email=data.get('email', '').strip().lower() if data.get('email') else None,
+        email=data.get('email', '').strip() if data.get('email') else None,
         telefono=data.get('telefono', '').strip() if data.get('telefono') else None
     )
     
@@ -539,7 +480,6 @@ def crear_cliente():
     db.session.commit()
     
     return jsonify(nuevo_cliente.to_dict()), 201
-
 
 @app.route('/api/clientes/<int:id>', methods=['PUT', 'OPTIONS'])
 def actualizar_cliente(id):
@@ -559,20 +499,15 @@ def actualizar_cliente(id):
     data = request.get_json()
     
     if 'nombre' in data:
-        if not data['nombre'].strip():
-            return jsonify({'error': 'El nombre no puede estar vacío'}), 400
-        cliente.nombre = data['nombre'].strip()
-    
+        cliente.nombre = data['nombre']
     if 'email' in data:
-        cliente.email = data['email'].strip().lower() if data.get('email') else None
-    
+        cliente.email = data['email']
     if 'telefono' in data:
-        cliente.telefono = data['telefono'].strip() if data.get('telefono') else None
+        cliente.telefono = data['telefono']
     
     db.session.commit()
     
     return jsonify(cliente.to_dict()), 200
-
 
 @app.route('/api/clientes/<int:id>', methods=['DELETE', 'OPTIONS'])
 def eliminar_cliente(id):
@@ -593,7 +528,6 @@ def eliminar_cliente(id):
     db.session.commit()
     
     return jsonify({'mensaje': 'Cliente eliminado correctamente'}), 200
-
 
 # ==================== RUTAS SERVICIOS ====================
 @app.route('/api/servicios', methods=['GET', 'OPTIONS'])
@@ -616,7 +550,6 @@ def get_servicios():
         print(f"❌ Error en get_servicios: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/servicios', methods=['POST', 'OPTIONS'])
 def crear_servicio():
     if request.method == 'OPTIONS':
@@ -632,20 +565,19 @@ def crear_servicio():
     
     data = request.get_json()
     
-    if not data or not data.get('nombre', '').strip() or data.get('precio') is None:
+    if not data or not data.get('nombre') or not data.get('precio'):
         return jsonify({'error': 'Nombre y precio son requeridos'}), 400
     
     nuevo_servicio = Servicio(
-        nombre=data['nombre'].strip(),
-        precio=float(data['precio']),
-        descripcion=data.get('descripcion', '').strip() if data.get('descripcion') else ''
+        nombre=data['nombre'],
+        precio=data['precio'],
+        descripcion=data.get('descripcion', '')
     )
     
     db.session.add(nuevo_servicio)
     db.session.commit()
     
     return jsonify(nuevo_servicio.to_dict()), 201
-
 
 @app.route('/api/servicios/<int:id>', methods=['PUT', 'OPTIONS'])
 def actualizar_servicio(id):
@@ -668,20 +600,15 @@ def actualizar_servicio(id):
     data = request.get_json()
     
     if 'nombre' in data:
-        if not data['nombre'].strip():
-            return jsonify({'error': 'El nombre no puede estar vacío'}), 400
-        servicio.nombre = data['nombre'].strip()
-    
+        servicio.nombre = data['nombre']
     if 'precio' in data:
-        servicio.precio = float(data['precio'])
-    
+        servicio.precio = data['precio']
     if 'descripcion' in data:
-        servicio.descripcion = data['descripcion'].strip() if data.get('descripcion') else ''
+        servicio.descripcion = data['descripcion']
     
     db.session.commit()
     
     return jsonify(servicio.to_dict()), 200
-
 
 @app.route('/api/servicios/<int:id>', methods=['DELETE', 'OPTIONS'])
 def eliminar_servicio(id):
@@ -713,7 +640,6 @@ def eliminar_servicio(id):
         print(f"❌ Error al eliminar servicio: {str(e)}")
         return jsonify({'error': f'Error al eliminar: {str(e)}'}), 500
 
-
 # ==================== RUTAS CITAS ====================
 @app.route('/api/citas', methods=['GET', 'OPTIONS'])
 def get_citas():
@@ -731,7 +657,6 @@ def get_citas():
     except Exception as e:
         print(f"❌ Error en get_citas: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/api/citas', methods=['POST', 'OPTIONS'])
 def crear_cita():
@@ -773,16 +698,15 @@ def crear_cita():
         cliente_id=cliente_id,
         barbero_id=barbero_id,
         servicio_id=servicio_id,
-        precio=float(data['precio']),
+        precio=data['precio'],
         fecha=datetime.fromisoformat(data['fecha']) if data.get('fecha') else datetime.utcnow(),
-        notas=data.get('notas', '').strip() if data.get('notas') else ''
+        notas=data.get('notas', '')
     )
     
     db.session.add(nueva_cita)
     db.session.commit()
     
     return jsonify(nueva_cita.to_dict()), 201
-
 
 @app.route('/api/citas/<int:id>', methods=['PUT', 'OPTIONS'])
 def actualizar_cita(id):
@@ -829,10 +753,10 @@ def actualizar_cita(id):
             cita.servicio_id = None
     
     if 'precio' in data:
-        cita.precio = float(data['precio'])
+        cita.precio = data['precio']
     
     if 'notas' in data:
-        cita.notas = data['notas'].strip() if data.get('notas') else ''
+        cita.notas = data['notas']
     
     if 'fecha' in data:
         try:
@@ -843,7 +767,6 @@ def actualizar_cita(id):
     db.session.commit()
     
     return jsonify(cita.to_dict()), 200
-
 
 @app.route('/api/citas/<int:id>', methods=['DELETE', 'OPTIONS'])
 def eliminar_cita(id):
@@ -865,12 +788,14 @@ def eliminar_cita(id):
     
     return jsonify({'mensaje': 'Cita eliminada correctamente'}), 200
 
-
 # ==================== RUTAS USUARIOS ====================
 @app.route('/api/usuarios', methods=['GET', 'OPTIONS'])
 @admin_requerido
 def get_usuarios():
     """Obtiene todos los usuarios - Solo para admin"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
     try:
         usuarios = Usuario.query.all()
         return jsonify([usuario.to_dict() for usuario in usuarios]), 200
@@ -878,26 +803,24 @@ def get_usuarios():
         print(f"❌ Error en get_usuarios: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/usuarios', methods=['POST', 'OPTIONS'])
 @admin_requerido
 def crear_usuario():
     """Crea un nuevo usuario - Solo para admin"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
     data = request.get_json()
     
     if not data or not all(k in data for k in ['email', 'password', 'nombre']):
         return jsonify({'error': 'Email, password y nombre son requeridos'}), 400
     
-    # Validar que los campos no estén vacíos
-    if not data['email'].strip() or not data['password'].strip() or not data['nombre'].strip():
-        return jsonify({'error': 'Los campos no pueden estar vacíos'}), 400
-    
-    if Usuario.query.filter_by(email=data['email'].strip().lower()).first():
+    if Usuario.query.filter_by(email=data['email']).first():
         return jsonify({'error': 'El email ya está registrado'}), 409
     
     nuevo_usuario = Usuario(
-        email=data['email'].strip().lower(),
-        nombre=data['nombre'].strip(),
+        email=data['email'],
+        nombre=data['nombre'],
         rol=data.get('rol', 'barbero'),
         estado=data.get('estado', 'activo')
     )
@@ -911,11 +834,13 @@ def crear_usuario():
         'usuario': nuevo_usuario.to_dict()
     }), 201
 
-
 @app.route('/api/usuarios/<int:id>', methods=['PUT', 'OPTIONS'])
 @admin_requerido
 def actualizar_usuario(id):
     """Actualiza un usuario - Solo para admin"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
     usuario = Usuario.query.get(id)
     
     if not usuario:
@@ -924,27 +849,16 @@ def actualizar_usuario(id):
     data = request.get_json()
     
     if 'nombre' in data:
-        if not data['nombre'].strip():
-            return jsonify({'error': 'El nombre no puede estar vacío'}), 400
-        usuario.nombre = data['nombre'].strip()
-    
+        usuario.nombre = data['nombre']
     if 'email' in data:
-        email_nuevo = data['email'].strip().lower()
-        if not email_nuevo:
-            return jsonify({'error': 'El email no puede estar vacío'}), 400
-        if email_nuevo != usuario.email and Usuario.query.filter_by(email=email_nuevo).first():
+        if data['email'] != usuario.email and Usuario.query.filter_by(email=data['email']).first():
             return jsonify({'error': 'El email ya está registrado'}), 409
-        usuario.email = email_nuevo
-    
+        usuario.email = data['email']
     if 'rol' in data:
-        usuario.rol = data['rol'].strip()
-    
+        usuario.rol = data['rol']
     if 'estado' in data:
-        usuario.estado = data['estado'].strip()
-    
+        usuario.estado = data['estado']
     if 'password' in data and data['password']:
-        if not data['password'].strip():
-            return jsonify({'error': 'La contraseña no puede estar vacía'}), 400
         usuario.set_password(data['password'])
     
     db.session.commit()
@@ -954,17 +868,19 @@ def actualizar_usuario(id):
         'usuario': usuario.to_dict()
     }), 200
 
-
 @app.route('/api/usuarios/<int:id>', methods=['DELETE', 'OPTIONS'])
 @admin_requerido
 def eliminar_usuario(id):
     """Elimina un usuario - Solo para admin"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
     usuario = Usuario.query.get(id)
     
     if not usuario:
         return jsonify({'error': 'Usuario no encontrado'}), 404
     
-    if usuario.email == 'rodritapia92@gmail.com':
+    if usuario.email == 'Rodritapia92@gmail.com':
         return jsonify({'error': 'No se puede eliminar el administrador principal'}), 403
     
     db.session.delete(usuario)
@@ -972,14 +888,12 @@ def eliminar_usuario(id):
     
     return jsonify({'mensaje': 'Usuario eliminado correctamente'}), 200
 
-
 # ==================== RUTAS GENERALES ====================
 @app.route('/api/health', methods=['GET', 'OPTIONS'])
 def health():
     if request.method == 'OPTIONS':
         return '', 200
     return jsonify({'status': 'API activa'}), 200
-
 
 @app.route('/api/health/pool', methods=['GET', 'OPTIONS'])
 def health_pool():
@@ -999,7 +913,6 @@ def health_pool():
             'status': 'error',
             'error': str(e)
         }), 500
-
 
 @app.route('/api/init-data', methods=['GET', 'POST', 'OPTIONS'])
 def init_data():
@@ -1043,13 +956,12 @@ def init_data():
         print(f"❌ Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-
 # ==================== INICIALIZAR BD ====================
 with app.app_context():
     db.create_all()
     print("✅ Base de datos inicializada")
     
-    admin_email = 'rodritapia92@gmail.com'
+    admin_email = 'Rodritapia92@gmail.com'
     admin_user = Usuario.query.filter_by(email=admin_email).first()
     
     if not admin_user:
@@ -1094,7 +1006,6 @@ with app.app_context():
         print("✅ Servicios creados")
     else:
         print(f"ℹ️ {Servicio.query.count()} servicios ya existen")
-
 
 if __name__ == '__main__':
     app.run(debug=True)
